@@ -35,11 +35,14 @@
   }
   #hint { text-align:center; margin-top:10px; font-size:14px; color:#a9704a; opacity:.9; }
 
-  /* 모바일(폰)·태블릿: 화면을 꽉 채우고 힌트 숨김, 라운드/그림자 제거 */
-  @media (pointer: coarse) and (max-width: 900px) {
-    #wrap { width: min(100vw, calc(100dvh * 920 / 680)); }
-    canvas { border-radius:0; box-shadow: 0 10px 30px rgba(150,80,40,.22); }
+  /* 좁거나 낮은 화면(폰·태블릿 가로·작은 창): 힌트 숨기고 화면 꽉 채움 */
+  @media (max-width: 820px), (max-height: 560px) {
+    #wrap { width: min(98vw, calc(100dvh * 920 / 680)); }
     #hint { display:none; }
+  }
+  /* 터치 기기(폰·태블릿): 프레임 없이 몰입형 */
+  @media (pointer: coarse) {
+    canvas { border-radius:0; box-shadow: 0 10px 30px rgba(150,80,40,.22); }
   }
 
   /* 회전 안내 오버레이 (폰 세로에서만 표시) */
