@@ -2,7 +2,7 @@
 <html lang="ko">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, minimum-scale=1.0, user-scalable=no, viewport-fit=cover">
 <title>불판마스터 · 삼겹살 굽기</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -14,10 +14,19 @@
     margin:0; padding:0; height:100%;
     font-family:'Jua','Apple SD Gothic Neo','Malgun Gothic',sans-serif;
     background: radial-gradient(120% 120% at 50% 0%, #fff3e4 0%, #ffe3c9 45%, #ffd0ad 100%);
-    display:flex; align-items:center; justify-content:center;
-    overflow:hidden; color:#5a4032;
+    color:#5a4032;
+    overflow:hidden; overscroll-behavior:none;
   }
-  #wrap { width:min(96vw, 920px); }
+  /* 화면 잠금: 스크롤·바운스·텍스트 선택 방지 (모바일 앱 느낌) */
+  body {
+    position:fixed; inset:0;
+    display:flex; align-items:center; justify-content:center;
+    user-select:none; -webkit-user-select:none; -webkit-touch-callout:none;
+    padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
+  }
+  /* 가로·세로 모두에서 화면 안에 꼭 맞게 (레터박스) — 높이도 함께 고려 */
+  #wrap { width: min(96vw, 940px); }
+  #wrap { width: min(96vw, 940px, calc((100dvh - 40px) * 920 / 680)); }
   canvas {
     display:block; width:100%; height:auto; aspect-ratio: 920 / 680;
     border-radius:22px; touch-action:none; cursor:pointer;
@@ -25,12 +34,47 @@
     background:#ffe9d6;
   }
   #hint { text-align:center; margin-top:10px; font-size:14px; color:#a9704a; opacity:.9; }
+
+  /* 모바일(폰)·태블릿: 화면을 꽉 채우고 힌트 숨김, 라운드/그림자 제거 */
+  @media (pointer: coarse) and (max-width: 900px) {
+    #wrap { width: min(100vw, calc(100dvh * 920 / 680)); }
+    canvas { border-radius:0; box-shadow: 0 10px 30px rgba(150,80,40,.22); }
+    #hint { display:none; }
+  }
+
+  /* 회전 안내 오버레이 (폰 세로에서만 표시) */
+  #rotate { display:none; }
+  #rotate {
+    position:fixed; inset:0; z-index:9999;
+    background: radial-gradient(120% 120% at 50% 0%, #fff3e4 0%, #ffe3c9 45%, #ffc79c 100%);
+    flex-direction:column; align-items:center; justify-content:center;
+    text-align:center; color:#8a5a3a; gap:20px; padding:24px;
+  }
+  #rotate .phone {
+    width:76px; height:126px; border:7px solid #ff8a5c; border-radius:18px;
+    position:relative; animation: rotate-hint 1.9s ease-in-out infinite;
+  }
+  #rotate .phone::after {
+    content:""; position:absolute; left:50%; bottom:8px; transform:translateX(-50%);
+    width:24px; height:4px; border-radius:3px; background:#ff8a5c;
+  }
+  #rotate h2 { margin:0; font-size:26px; color:#ef6a3d; }
+  #rotate p { margin:0; font-size:16px; opacity:.85; line-height:1.5; }
+  @keyframes rotate-hint { 0%,38%{transform:rotate(0)} 60%,100%{transform:rotate(-90deg)} }
+  @media (orientation: portrait) and (max-width: 540px) {
+    #rotate { display:flex; }
+  }
 </style>
 </head>
 <body>
 <div id="wrap">
   <canvas id="game" width="920" height="680"></canvas>
   <div id="hint">불판 아무 곳에나 자유롭게 올리세요 · 익으면 탭해서 뒤집기 · 노릇하면 접시로 · 소리를 켜면 지글지글 🔊</div>
+</div>
+<div id="rotate">
+  <div class="phone"></div>
+  <h2>가로로 돌려주세요</h2>
+  <p>불판마스터는 가로 화면에서<br>가장 맛있게 즐길 수 있어요 🍖</p>
 </div>
 <script>
 (function(){
@@ -1255,6 +1299,23 @@ function drawMute(){
   else { ctx.beginPath(); ctx.arc(6,0,5,-0.9,0.9); ctx.stroke(); ctx.beginPath(); ctx.arc(6,0,9,-0.8,0.8); ctx.stroke(); }
   ctx.restore();
 }
+
+/* ---------- 모바일 / 고해상도(HiDPI) 대응 ---------- */
+function fitCanvas(){
+  const dpr = Math.max(1, Math.min(window.devicePixelRatio||1, 2));   // 3x폰은 2로 캡(성능)
+  const w = Math.round(W*dpr), h = Math.round(H*dpr);
+  if(cv.width!==w || cv.height!==h){ cv.width=w; cv.height=h; }
+  ctx.setTransform(dpr,0,0,dpr,0,0);   // 논리 좌표는 계속 920x680, 백킹만 선명하게
+}
+fitCanvas();
+window.addEventListener('resize', fitCanvas);
+window.addEventListener('orientationchange', ()=>setTimeout(fitCanvas,120));
+/* 터치 하드닝: 핀치/더블탭 확대·롱프레스 메뉴·다중터치 스크롤 차단 */
+document.addEventListener('gesturestart', e=>e.preventDefault());
+document.addEventListener('gesturechange', e=>e.preventDefault());
+document.addEventListener('dblclick', e=>e.preventDefault(), {passive:false});
+document.addEventListener('contextmenu', e=>e.preventDefault());
+document.addEventListener('touchmove', e=>{ if(e.touches && e.touches.length>1) e.preventDefault(); }, {passive:false});
 
 /* ---------- 루프 ---------- */
 function frame(){ const t=now(); let dt=(t-last)/1000; last=t; dt=Math.min(0.05,dt); update(dt); draw(); requestAnimationFrame(frame); }
