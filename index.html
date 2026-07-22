@@ -206,6 +206,7 @@ let TRASH={x:108,y:560,r:56};
 let TRAY ={x:214, y:516, w:492, h:150};
 let ADMIN={x:W-166, y:H-38, w:154, h:28};
 let MASCOT={x:822,y:138};
+let ISCALE=1;                 // 모바일(세로)에서 재료 확대 배율
 let portrait=false;
 // 화면 방향에 따라 레이아웃(좌표계) 전체를 다시 계산
 function computeLayout(){
@@ -213,11 +214,12 @@ function computeLayout(){
   portrait = vh > vw;                       // 세로 화면이면 세로 전용 배치
   if(portrait){
     W=760; H=1280;
-    GRILL ={x:70,  y:150,  w:620, h:470};    // 위쪽에 큰 불판
-    PLATE ={x:380, y:735,  w:640, h:150};    // 불판 아래 넓은 접시
-    TRASH ={x:120, y:918,  r:52};
-    TRAY  ={x:40,  y:1055, w:680, h:150};    // 맨 아래 재료 바(엄지로 닿게)
-    MASCOT={x:642, y:905};
+    GRILL ={x:70,  y:110,  w:620, h:450};    // 위쪽에 큰 불판
+    PLATE ={x:380, y:672,  w:660, h:200};    // 불판 아래 넓은 접시(종류별 여러 줄)
+    TRASH ={x:106, y:900,  r:54};
+    TRAY  ={x:36,  y:980,  w:688, h:210};    // 맨 아래 큰 재료 바(엄지로 닿게)
+    MASCOT={x:656, y:892};
+    ISCALE=1.34;                             // 모바일에서 재료 크게
   } else {
     W=920; H=680;
     GRILL ={x:238, y:150, w:446, h:286};
@@ -225,6 +227,7 @@ function computeLayout(){
     TRASH ={x:108, y:560, r:56};
     TRAY  ={x:214, y:516, w:492, h:150};
     MASCOT={x:822, y:138};
+    ISCALE=1;
   }
   GI={x:GRILL.x+40, y:GRILL.y+44, w:GRILL.w-80, h:GRILL.h-80};
   ADMIN={x:W-166, y:H-38, w:154, h:28};
@@ -268,10 +271,11 @@ function pieceResult(p){
 
 /* ---------- 입력 ---------- */
 function pos(e){const r=cv.getBoundingClientRect();return {x:(e.clientX-r.left)*(W/r.width), y:(e.clientY-r.top)*(H/r.height)};}
-function pieceAt(x,y){ for(let i=pieces.length-1;i>=0;i--){const p=pieces[i]; if(p.serveAnim>0)continue; if(Math.hypot(x-p.x,y-p.y)<46) return p;} return null; }
+function pieceAt(x,y){ const R=46*ISCALE; for(let i=pieces.length-1;i>=0;i--){const p=pieces[i]; if(p.serveAnim>0)continue; if(Math.hypot(x-p.x,y-p.y)<R) return p;} return null; }
 function trayHit(p){
   const L=LEVELS[levelIdx], n=L.meats.length, gap=TRAY.w/n;
-  for(let i=0;i<n;i++){ const cx=TRAY.x+gap*(i+0.5), cy=TRAY.y+64; if(Math.hypot(p.x-cx,p.y-cy)<40) return L.meats[i]; }
+  const cyc=TRAY.y+(portrait?96:64), rad=portrait?56:40;
+  for(let i=0;i<n;i++){ const cx=TRAY.x+gap*(i+0.5); if(Math.hypot(p.x-cx,p.y-cyc)<rad) return L.meats[i]; }
   return null;
 }
 function onDown(e){
@@ -519,13 +523,16 @@ function drawPlate(){
   // 종류별로 묶고, 한 줄에 3개씩 세워 담기 (많이 안 겹치게)
   const groups=[], gi={};
   for(const it of plateItems){ if(gi[it.type]===undefined){ gi[it.type]=groups.length; groups.push([]); } groups[gi[it.type]].push(it); }
+  const perRow=portrait?6:2;   // 모바일: 종류별로 한 줄에 6개까지
   const rowsArr=[];
-  for(const grp of groups){ for(let i=0;i<grp.length;i+=2) rowsArr.push(grp.slice(i,i+2)); }
-  const nrows=Math.max(rowsArr.length,1), rowH=Math.min(60,(PLATE.h-36)/nrows), cyBase=-(nrows-1)*rowH/2;
+  for(const grp of groups){ for(let i=0;i<grp.length;i+=perRow) rowsArr.push(grp.slice(i,i+perRow)); }
+  const nrows=Math.max(rowsArr.length,1), rowH=Math.min(portrait?74:60,(PLATE.h-30)/nrows), cyBase=-(nrows-1)*rowH/2;
+  const step=portrait?100:56;
+  const isc=portrait? Math.max(0.66, Math.min(1.06, rowH/64)) : 0.78;   // 줄 수에 맞춰 크기 조정
   for(let r=0;r<rowsArr.length;r++){ const row=rowsArr[r], cy=cyBase+r*rowH;
-    const cnt=row.length, step=56, sx=-(cnt-1)*step/2;   // 같은 줄 재료 살짝 겹침
+    const cnt=row.length, sx=-(cnt-1)*step/2;   // 같은 줄 재료 살짝 겹침
     for(let j=0;j<cnt;j++){ const it=row[j];
-      ctx.save(); ctx.translate(sx+j*step, cy); ctx.scale(0.78,0.78); ctx.rotate(it.rot*0.4);
+      ctx.save(); ctx.translate(sx+j*step, cy); ctx.scale(isc,isc); ctx.rotate(it.rot*0.4);
       ctx.fillStyle='rgba(70,40,20,.16)'; ctx.beginPath(); ctx.ellipse(0,18,36,9,0,0,Math.PI*2); ctx.fill();
       drawIconCentered(it.type, MEAT[it.type].perfect[1], true, false); ctx.restore(); }
   }
@@ -555,12 +562,13 @@ function drawTray(){
   const L=LEVELS[levelIdx], n=L.meats.length, gap=TRAY.w/n;
   rr(TRAY.x-8,TRAY.y-6,TRAY.w+16,TRAY.h,20); ctx.fillStyle='rgba(255,255,255,.55)'; ctx.fill();
   ctx.strokeStyle='rgba(210,150,110,.5)'; ctx.lineWidth=2; ctx.stroke();
-  ctx.fillStyle='#a9704a'; ctx.font='14px Jua,sans-serif'; ctx.textAlign='left'; ctx.fillText('재료 (드래그해서 불판으로)',TRAY.x+4,TRAY.y+16);
-  for(let i=0;i<n;i++){ const t=L.meats[i], m=MEAT[t]; const cx=TRAY.x+gap*(i+0.5), cy=TRAY.y+64;
-    circle(cx,cy,38); ctx.fillStyle='#fff'; ctx.fill(); ctx.strokeStyle='#f1d9c4'; ctx.lineWidth=3; ctx.stroke();
-    ctx.save(); ctx.translate(cx,cy); ctx.scale(0.8,0.8); drawIconCentered(t,0,false,false); ctx.restore();
-    ctx.fillStyle='#6b4a37'; ctx.font='14px Jua,sans-serif'; ctx.textAlign='center'; ctx.fillText(m.name,cx,cy+56);
-    ctx.fillStyle='#c98f4a'; ctx.font='11px Jua,sans-serif'; ctx.fillText(m.base+'점',cx,cy+70); }
+  ctx.fillStyle='#a9704a'; ctx.font=(portrait?'17px':'14px')+' Jua,sans-serif'; ctx.textAlign='left'; ctx.fillText('재료 (드래그해서 불판으로)',TRAY.x+4,TRAY.y+(portrait?20:16));
+  const rad=portrait?52:38, isc=portrait?1.1:0.8, cyc=TRAY.y+(portrait?96:64);
+  for(let i=0;i<n;i++){ const t=L.meats[i], m=MEAT[t]; const cx=TRAY.x+gap*(i+0.5), cy=cyc;
+    circle(cx,cy,rad); ctx.fillStyle='#fff'; ctx.fill(); ctx.strokeStyle='#f1d9c4'; ctx.lineWidth=3; ctx.stroke();
+    ctx.save(); ctx.translate(cx,cy); ctx.scale(isc,isc); drawIconCentered(t,0,false,false); ctx.restore();
+    ctx.fillStyle='#6b4a37'; ctx.font=(portrait?'18px':'14px')+' Jua,sans-serif'; ctx.textAlign='center'; ctx.fillText(m.name,cx,cy+rad+(portrait?24:18));
+    ctx.fillStyle='#c98f4a'; ctx.font=(portrait?'14px':'11px')+' Jua,sans-serif'; ctx.fillText(m.base+'점',cx,cy+rad+(portrait?44:32)); }
 }
 
 /* ---------- 조각 렌더 ---------- */
@@ -569,24 +577,25 @@ function drawPiece(p){
   // 따뜻한 림 글로우 (굽는 중)
   if(p.onGrill && !p.dragging && !p.burnt){
     const inPerfect=cur>=m.perfect[0]&&cur<=m.perfect[1];
-    const gl=ctx.createRadialGradient(p.x,p.y+6,6,p.x,p.y+6,56);
+    const gr=56*ISCALE;
+    const gl=ctx.createRadialGradient(p.x,p.y+6,6,p.x,p.y+6,gr);
     gl.addColorStop(0,'rgba(255,150,55,'+(inPerfect?0.55:0.32)+')'); gl.addColorStop(1,'rgba(255,150,55,0)');
-    ctx.fillStyle=gl; circle(p.x,p.y+6,56); ctx.fill();
+    ctx.fillStyle=gl; circle(p.x,p.y+6,gr); ctx.fill();
   }
   ctx.save(); ctx.translate(p.x,p.y);
-  const s=1+(p.pop*0.25)+(p.dragging?0.06:0); ctx.scale(s,s); ctx.rotate(p.angle);
+  const s=(1+(p.pop*0.25)+(p.dragging?0.06:0))*ISCALE; ctx.scale(s,s); ctx.rotate(p.angle);
   ctx.fillStyle='rgba(70,40,20,.22)'; ctx.beginPath(); ctx.ellipse(0,32,44,12,0,0,Math.PI*2); ctx.fill();
   drawIconCentered(p.type,dmax,p.flipped,p.burnt);
   ctx.restore();
   if(p.onGrill && !p.dragging && p.serveAnim<=0) drawGauge(p,cur,m);
 }
 function drawGauge(p,cur,m){
-  const R=42, x=p.x, y=p.y; const frac=clamp(cur/m.burnt,0,1);
-  ctx.beginPath(); ctx.arc(x,y,R,-Math.PI/2,-Math.PI/2+Math.PI*2); ctx.strokeStyle='rgba(0,0,0,.16)'; ctx.lineWidth=5; ctx.stroke();
+  const R=42*ISCALE, x=p.x, y=p.y; const frac=clamp(cur/m.burnt,0,1);
+  ctx.beginPath(); ctx.arc(x,y,R,-Math.PI/2,-Math.PI/2+Math.PI*2); ctx.strokeStyle='rgba(0,0,0,.16)'; ctx.lineWidth=5*ISCALE; ctx.stroke();
   const ps=m.perfect[0]/m.burnt, pe=m.perfect[1]/m.burnt;
-  ctx.beginPath(); ctx.arc(x,y,R,-Math.PI/2+Math.PI*2*ps,-Math.PI/2+Math.PI*2*pe); ctx.strokeStyle='rgba(79,208,138,.4)'; ctx.lineWidth=11; ctx.stroke();
+  ctx.beginPath(); ctx.arc(x,y,R,-Math.PI/2+Math.PI*2*ps,-Math.PI/2+Math.PI*2*pe); ctx.strokeStyle='rgba(79,208,138,.4)'; ctx.lineWidth=11*ISCALE; ctx.stroke();
   let col='#7fb8e0'; if(frac<ps) col='#7fb8e0'; else if(frac<=pe) col='#4fd08a'; else col=mix('#ffd24d','#ff5a3c',(frac-pe)/(1-pe)); if(p.burnt) col='#3a3a3a';
-  ctx.beginPath(); ctx.arc(x,y,R,-Math.PI/2,-Math.PI/2+Math.PI*2*frac); ctx.strokeStyle=col; ctx.lineWidth=5; ctx.lineCap='round'; ctx.stroke();
+  ctx.beginPath(); ctx.arc(x,y,R,-Math.PI/2,-Math.PI/2+Math.PI*2*frac); ctx.strokeStyle=col; ctx.lineWidth=5*ISCALE; ctx.lineCap='round'; ctx.stroke();
   let txt=null,bg=null;
   if(p.burnt){ txt='탔다!'; bg='#5a4a44'; }
   else if(!p.flipped && frac>=ps){ txt='뒤집기!'; bg='#3aa0e0'; }
