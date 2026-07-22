@@ -917,9 +917,9 @@ function drawSausage(col,edge,cookT,charT,flipped,m){
 // ===== 신규 재료 아트 =====
 function daepaeMorph(ox,oy,s,rot,open,col,edge,cookT,charT){  // 한 장의 띠: 말린(코일) ↔ 펴진(물결) 모핑
   ctx.save(); ctx.translate(ox,oy); ctx.rotate(rot); ctx.scale(s,s);
-  const N=46, th=4.6;                                        // 반두께
-  const turns=(1-open)*1.05;                                 // 익으면 감김이 풀림(적당히)
-  const rBase=17, W=48, amp=2+cookT*3.4, waves=2.2, ph=0.6;
+  const N=52, th=4.3;                                        // 반두께
+  const turns=(1-open)*2.05;                                 // 생것은 도르르 말림 → 구우면 풀림
+  const rBase=18, W=48, amp=2+cookT*3.4, waves=2.2, ph=0.6;
   const fat=mix('#fff4ec', mix('#e0b88a','#5a3a28',charT), cookT*0.5);
   const P=[];
   for(let i=0;i<=N;i++){ const t=i/N;
