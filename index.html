@@ -378,7 +378,7 @@ function startLevel(i){
   levelIdx=i; const M=LMETA[i];
   target=M.target; timeLeft=M.time; combo=0; burntCount=0;
   pieces=[]; floats=[]; parts=[]; drag=null; plateItems=[]; plateCount=0;
-  wok = (LEVELS[i] && LEVELS[i].mode==='friedrice') ? {items:[], has:{}, fry:0, burnt:false} : null;
+  wok = (LEVELS[i] && LEVELS[i].mode==='friedrice') ? {items:[], has:{}, fry:0, burnt:false, toss:0} : null;
   if(i===0){ score=0; cookedTypes=[]; }
   state='intro'; introT=0;
 }
@@ -388,14 +388,18 @@ function wokCenter(){ return {x:GRILL.x+GRILL.w/2, y:GRILL.y+GRILL.h/2}; }
 function wokReady(){ if(!wok) return false; const tops=Object.keys(wok.has).filter(k=>k!=='rice').length;
   return wok.has.rice && tops>=2 && wok.fry>=WFRY_PS && wok.fry<=WFRY_PE && !wok.burnt; }
 function addToWok(type){ if(!wok) return; if(wok.burnt) return;
-  wok.items.push({type, a:prr(wok.items.length*3+1,0,6.28), rr:prr(wok.items.length*2+5,0.1,1)});
-  while(wok.items.length>48) wok.items.shift();
+  const n = type==='rice'?8:6;                        // 한 번에 더 많이 들어감
+  for(let k=0;k<n;k++) wok.items.push({type, a:rand(0,6.28), rr:Math.sqrt(rand(0.03,1)), hp:rand(0,1), sz:rand(0.85,1.25)});
+  while(wok.items.length>96) wok.items.shift();
   wok.has[type]=true;
-  if(typeof sizzleBurst==='function') sizzleBurst(0.5,0.16,1300);
-  const c=wokCenter(); for(let i=0;i<7;i++) parts.push(sizzP(c.x+rand(-34,34),c.y+rand(-18,18)));
+  wok.toss=Math.max(wok.toss,0.7);                    // 넣으면 살짝 웍질
+  if(typeof sizzleBurst==='function') sizzleBurst(0.55,0.18,1250);
+  const c=wokCenter(); for(let i=0;i<11;i++) parts.push(sizzP(c.x+rand(-42,42),c.y+rand(-24,20)));
   if(type==='rice') say('밥을 볶아요!'); }
 function stirWok(){ if(!wok) return; if(!wok.has.rice){ say('흰밥부터 넣어요!'); return; }
-  S.flip(); wok.fry+=0.3; const c=wokCenter(); for(let i=0;i<8;i++) parts.push(sizzP(c.x+rand(-40,40),c.y+rand(-18,18))); }
+  S.flip(); wok.fry+=0.28; wok.toss=1;                // 웍질! 재료가 밥이랑 섞임
+  for(const b of wok.items){ b.a=rand(0,6.28); b.rr=Math.sqrt(rand(0.03,1)); b.hp=rand(0,1); }
+  const c=wokCenter(); for(let i=0;i<16;i++) parts.push(sizzP(c.x+rand(-54,54),c.y+rand(-32,12))); }
 function serveFriedRice(){ if(!wok) return;
   const tops=Object.keys(wok.has).filter(k=>k!=='rice').length;
   const mid=(WFRY_PS+WFRY_PE)/2, half=(WFRY_PE-WFRY_PS)/2;
@@ -410,13 +414,15 @@ function resetWok(){ if(wok){ wok.items=[]; wok.has={}; wok.fry=0; wok.burnt=fal
 function discardWok(){ S.trash(); combo=0; say('아까워라…'); const c=wokCenter(); for(let i=0;i<8;i++) parts.push(smoke(c.x,c.y-10)); resetWok(); }
 function onBurnWok(){ S.burn(); say('밥이 타요!'); mascot.mood='sad'; mascot.t=1.0; shake=6; }
 function updateWok(dt){
-  if(wok && wok.items.length>0 && wok.has.rice && !wok.burnt){
+  if(!wok) return;
+  if(wok.toss>0) wok.toss=Math.max(0,wok.toss-dt*2.4);   // 웍질 애니 감쇠
+  if(wok.items.length>0 && wok.has.rice && !wok.burnt){
     wok.fry+=dt; const c=wokCenter();
-    setSizzle(clamp(0.5+wok.items.length*0.04,0.5,1));
-    if(Math.random()<dt*7) crackle();
-    if(Math.random()<dt*7) parts.push(sizzP(c.x+rand(-46,46),c.y+rand(-22,22)));
-    if(wok.fry>0.8 && Math.random()<dt*4) parts.push(steam(c.x+rand(-34,34),c.y-10));
-    if(wok.fry>WFRY_PE && Math.random()<dt*3) parts.push(smoke(c.x+rand(-30,30),c.y-10));
+    setSizzle(clamp(0.5+wok.items.length*0.02,0.5,1));
+    if(Math.random()<dt*8) crackle();
+    if(Math.random()<dt*8) parts.push(sizzP(c.x+rand(-50,50),c.y+rand(-24,20)));
+    if(wok.fry>0.8 && Math.random()<dt*4) parts.push(steam(c.x+rand(-34,34),c.y-12));
+    if(wok.fry>WFRY_PE && Math.random()<dt*3) parts.push(smoke(c.x+rand(-30,30),c.y-12));
     if(wok.fry>=WBURN){ wok.burnt=true; onBurnWok(); }
   } else setSizzle(0);
 }
@@ -424,22 +430,32 @@ function drawWokContents(){
   if(!wok) return; const c=wokCenter();
   if(wok.items.length===0){ ctx.fillStyle='#f0dcc2'; ctx.font=(portrait?'20px':'16px')+' Jua,sans-serif'; ctx.textAlign='center';
     ctx.fillText('흰밥과 재료를 웍에 넣어 볶으세요!',c.x,c.y+4); return; }
-  const R=Math.min(GRILL.w,GRILL.h)*0.42;
+  const tsec=now()/1000;
+  const grow=0.66+0.34*clamp(wok.items.length/44,0,1);      // 재료 많을수록 밥 무더기 커짐
+  const R=Math.min(GRILL.w,GRILL.h)*0.42*grow;
+  const hop=Math.sin(clamp(wok.toss,0,1)*Math.PI);          // 웍질 호(솟았다 내려옴)
+  const bob=(wok.fry>0?1:0)*Math.sin(tsec*3)*2.2;           // 볶는 중 잔진동
+  const lift=-hop*22 + bob;
+  const tilt=hop*0.05*Math.sin(tsec*26);
   const riceCol=mix('#fdf6e3', wok.burnt?'#4a3528':'#e9c489', clamp(wok.fry/WBURN,0,1));
-  ctx.save(); ctx.translate(c.x,c.y);
+  ctx.save(); ctx.translate(c.x,c.y+lift); ctx.rotate(tilt);
   ctx.fillStyle=mix(riceCol,'#000000',0.08); ctx.beginPath(); ctx.ellipse(0,14,R,R*0.5,0,0,Math.PI*2); ctx.fill();
   ctx.fillStyle=riceCol; ctx.beginPath(); ctx.ellipse(0,2,R*0.92,R*0.46,0,0,Math.PI*2); ctx.fill();
   ctx.fillStyle=mix(riceCol,'#ffffff',0.14); ctx.beginPath(); ctx.ellipse(-R*0.15,-6,R*0.6,R*0.32,0,0,Math.PI*2); ctx.fill();
-  for(let i=0;i<70;i++){ const a=prr(i*2+1,0,6.28), rr2=prr(i*2+2,0,1); const rx=Math.cos(a)*R*0.84*Math.sqrt(rr2), ry=Math.sin(a)*R*0.42*Math.sqrt(rr2);
-    ctx.save(); ctx.translate(rx,ry); ctx.rotate(a); ctx.fillStyle=mix(riceCol,'#ffffff',prr(i+9,0,0.4)); ctx.beginPath(); ctx.ellipse(0,0,3.4,2,0,0,Math.PI*2); ctx.fill(); ctx.restore(); }
+  const grains=Math.min(130, 55+wok.items.length);
+  for(let i=0;i<grains;i++){ const a=prr(i*2+1,0,6.28), rr2=prr(i*2+2,0,1); const rx=Math.cos(a)*R*0.84*Math.sqrt(rr2), ry=Math.sin(a)*R*0.42*Math.sqrt(rr2);
+    ctx.save(); ctx.translate(rx,ry); ctx.rotate(a); ctx.fillStyle=mix(riceCol,'#ffffff',prr(i+9,0,0.4)); ctx.beginPath(); ctx.ellipse(0,0,3.2,1.9,0,0,Math.PI*2); ctx.fill(); ctx.restore(); }
   const fc={kimchi:'#d33a1e', gim:'#26302a', roe:'#ff8a2a', cheese:'#ffd24d'};
   wok.items.forEach((it,i)=>{ if(it.type==='rice')return; const col=fc[it.type]||'#c96';
-    const a=it.a, rr2=it.rr, rx=Math.cos(a)*R*0.78*Math.sqrt(rr2), ry=Math.sin(a)*R*0.4*Math.sqrt(rr2);
-    ctx.fillStyle=col;
-    if(it.type==='gim'){ ctx.save(); ctx.translate(rx,ry); ctx.rotate(a); ctx.fillRect(-5,-5,10,10); ctx.restore(); }
-    else if(it.type==='roe'){ for(let k=0;k<3;k++){ circle(rx+prr(i*4+k+1,-5,5),ry+prr(i*4+k+2,-4,4),2.1); ctx.fill(); } }
-    else if(it.type==='cheese'){ ctx.globalAlpha=0.85; circle(rx,ry,5.5); ctx.fill(); ctx.globalAlpha=1; }
-    else { circle(rx,ry,4.6); ctx.fill(); } });
+    const rx=Math.cos(it.a)*R*0.8*it.rr, baseY=Math.sin(it.a)*R*0.4*it.rr;
+    const bh = hop>0 ? Math.sin(clamp(hop*Math.PI - (it.hp||0)*1.1,0,Math.PI))*(16+(it.hp||0)*20) : 0;  // 개별로 튀어오름
+    const ry = baseY - bh; const sz=(it.sz||1);
+    ctx.save(); ctx.translate(rx,ry); ctx.fillStyle=col;
+    if(it.type==='gim'){ ctx.rotate(it.a); ctx.fillRect(-6.5*sz,-6.5*sz,13*sz,13*sz); }
+    else if(it.type==='roe'){ for(let k=0;k<4;k++){ circle(prr(i*4+k+1,-6,6),prr(i*4+k+2,-5,5),2.7*sz); ctx.fill(); } }
+    else if(it.type==='cheese'){ ctx.globalAlpha=0.9; circle(0,0,7.2*sz); ctx.fill(); ctx.globalAlpha=1; ctx.fillStyle='rgba(255,240,180,.7)'; circle(-2,-2,3*sz); ctx.fill(); }
+    else { circle(0,0,6.6*sz); ctx.fill(); ctx.fillStyle=mix(col,'#ffffff',0.32); circle(-1.8,-1.8,2.4*sz); ctx.fill(); }
+    ctx.restore(); });
   ctx.restore();
   drawWokGauge(c.x,c.y,R);
 }
