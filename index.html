@@ -898,7 +898,7 @@ function drawDaepae(col,edge,cookT,charT,flipped){   // 대패삼겹살 (얇게 
   charSpeck(charT,w,48); ctx.restore();
 }
 function drawVienna(col,edge,cookT,charT){            // 비엔나 → 구우면 문어 다리로 벌어짐
-  ctx.save(); const spread=clamp(cookT,0,1), legN=6, byBot=8;
+  ctx.save(); const spread=clamp(cookT,0,1), legN=4, byBot=8;
   for(let i=0;i<legN;i++){ const f=(i-(legN-1)/2)/((legN-1)/2);   // -1..1
     const ang=f*(0.32+spread*0.72), len=16+spread*11, sx=f*10, sy=byBot;
     const mx=sx+Math.sin(ang)*len*0.6, my=sy+Math.cos(ang)*len*0.55+5;
