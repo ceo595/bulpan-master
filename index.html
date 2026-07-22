@@ -204,7 +204,7 @@ const LEVELS=[
 const LMETA=[{time:30,target:500},{time:30,target:950},{time:30,target:1500},{time:30,target:1800},{time:30,target:2100},{time:30,target:2500},{time:30,target:3000},{time:45,target:1400}];
 // 아이콘 크기/중심 정규화 (삼겹살·새우 기준 84로 통일, 원 안 가운데 정렬)
 const ICON={"samgyeopsal":{"s":1,"cx":0,"cy":0},"moksal":{"s":1.05,"cx":0,"cy":0},"porkrib":{"s":0.92,"cx":12.3,"cy":-1.7},"chuck":{"s":0.93,"cx":0.5,"cy":0},"sirloin":{"s":1.135,"cx":0,"cy":2},"shrimp":{"s":0.999,"cx":4.8,"cy":-3.7},"enoki":{"s":1.057,"cx":0,"cy":0.3},"kingoyster":{"s":1.373,"cx":0,"cy":-1.5},"sausage":{"s":1.335,"cx":-0.9,"cy":0.8},"kimchi":{"s":1.024,"cx":0,"cy":-0.5},"onion":{"s":1.024,"cx":0,"cy":0},"asparagus":{"s":1.152,"cx":2.1,"cy":-5},"scallop":{"s":1.273,"cx":0,"cy":-2.5},"abalone":{"s":1.4,"cx":0,"cy":0},"kijogae":{"s":0.839,"cx":4.6,"cy":1.1},"gopchang":{"s":1.162,"cx":-0.8,"cy":1.3},"daechang":{"s":1.091,"cx":2.6,"cy":5.7},"garlic":{"s":1.219,"cx":0.5,"cy":1.2},"buchu":{"s":1.16,"cx":-1.3,"cy":-7.4},
-"daepae":{"s":1.0,"cx":0,"cy":0},"vienna":{"s":1.0,"cx":0,"cy":-4},"rice":{"s":1.0,"cx":0,"cy":0},"gim":{"s":1.0,"cx":0,"cy":0},"roe":{"s":1.0,"cx":0,"cy":0},"cheese":{"s":1.0,"cx":0,"cy":0},"friedrice":{"s":1.0,"cx":0,"cy":0}};
+"daepae":{"s":1.12,"cx":0,"cy":-1},"vienna":{"s":1.0,"cx":0,"cy":-4},"rice":{"s":1.0,"cx":0,"cy":0},"gim":{"s":1.0,"cx":0,"cy":0},"roe":{"s":1.0,"cx":0,"cy":0},"cheese":{"s":1.0,"cx":0,"cy":0},"friedrice":{"s":1.0,"cx":0,"cy":0}};
 function drawIconCentered(type,dmax,flipped,burnt){ const ic=ICON[type]; ctx.save(); if(ic){ ctx.scale(ic.s,ic.s); ctx.translate(-ic.cx,-ic.cy); } drawMeatIcon(0,0,type,dmax,flipped,burnt); ctx.restore(); }
 
 /* ---------- 존/좌표 ---------- */
@@ -917,7 +917,7 @@ function drawSausage(col,edge,cookT,charT,flipped,m){
 // ===== 신규 재료 아트 =====
 function daepaeRoll(ox,oy,s,col,edge,cookT,charT){    // 대패삼겹살 롤 한 개(말린 튜브)
   ctx.save(); ctx.translate(ox,oy); ctx.scale(s,s);
-  const rx=15, ry=6, topY=-16, botY=16;
+  const rx=16, ry=6.6, topY=-13, botY=13;            // 뭉툭한 짧은 롤
   const fat=mix('#fff4ec', mix('#e6c69c','#6a5040',charT), cookT*0.45);
   // 옆면(원기둥) 클립 후 가로 삼겹살 줄무늬
   ctx.save();
@@ -940,12 +940,14 @@ function daepaeRoll(ox,oy,s,col,edge,cookT,charT){    // 대패삼겹살 롤 한
   ctx.globalAlpha=clamp(0.25+cookT*0.35-charT*0.5,0,0.55); ctx.fillStyle='rgba(255,255,255,.7)'; ctx.beginPath(); ctx.ellipse(-rx*0.35,-2,3,10,0.2,0,Math.PI*2); ctx.fill(); ctx.globalAlpha=1;
   ctx.restore();
 }
-function drawDaepae(col,edge,cookT,charT,flipped){    // 대패삼겹살 (말린 롤 여러 개가 쌓인 모양)
+function drawDaepae(col,edge,cookT,charT,flipped){    // 대패삼겹살 (말린 롤 5개가 쌓인 모양)
   ctx.save();
-  daepaeRoll(-17,-3,0.82,col,edge,cookT,charT);       // 뒤 왼쪽
-  daepaeRoll(17,-5,0.86,col,edge,cookT,charT);        // 뒤 오른쪽
-  daepaeRoll(1,9,1.16,col,edge,cookT,charT);          // 앞 큰 롤
-  charSpeck(charT,84,72);
+  daepaeRoll(  0,-12,0.72,col,edge,cookT,charT);      // 뒤 가운데
+  daepaeRoll(-22,-7,0.72,col,edge,cookT,charT);       // 뒤 왼쪽
+  daepaeRoll( 22,-7,0.72,col,edge,cookT,charT);       // 뒤 오른쪽
+  daepaeRoll(-13, 9,0.92,col,edge,cookT,charT);       // 앞 왼쪽
+  daepaeRoll( 14, 8,0.94,col,edge,cookT,charT);       // 앞 오른쪽
+  charSpeck(charT,88,74);
   ctx.restore();
 }
 function drawVienna(col,edge,cookT,charT){            // 비엔나 → 구우면 문어 다리로 벌어짐
