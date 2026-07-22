@@ -918,14 +918,14 @@ function drawSausage(col,edge,cookT,charT,flipped,m){
 function daepaeMorph(ox,oy,s,rot,open,col,edge,cookT,charT){  // 한 장의 띠: 말린(코일) ↔ 펴진(물결) 모핑
   ctx.save(); ctx.translate(ox,oy); ctx.rotate(rot); ctx.scale(s,s);
   const N=46, th=4.6;                                        // 반두께
-  const turns=(1-open)*1.55;                                 // 익으면 감김이 풀림
-  const rBase=19, W=60, amp=2+cookT*3.6, waves=2.4, ph=0.6;
+  const turns=(1-open)*1.05;                                 // 익으면 감김이 풀림(적당히)
+  const rBase=17, W=48, amp=2+cookT*3.4, waves=2.2, ph=0.6;
   const fat=mix('#fff4ec', mix('#e0b88a','#5a3a28',charT), cookT*0.5);
   const P=[];
   for(let i=0;i<=N;i++){ const t=i/N;
-    const aR=-Math.PI/2 - t*turns*2*Math.PI;                 // 안쪽으로 감기는 나선
-    const rR=rBase*(0.2+0.8*(1-t));
-    const sx=Math.cos(aR)*rR, sy=Math.sin(aR)*rR*0.92;
+    const aR=Math.PI - t*turns*2*Math.PI;                    // 바깥끝을 왼쪽에 고정 → 방향 안 바뀌게
+    const rR=rBase*(0.24+0.76*(1-t));
+    const sx=Math.cos(aR)*rR, sy=Math.sin(aR)*rR*0.92;      // 바깥끝(t=0)이 왼쪽
     const fx=(t-0.5)*W, fy=Math.sin(t*Math.PI*waves*2+ph)*amp;
     P.push([lerp(sx,fx,open), lerp(sy,fy,open)]);
   }
@@ -953,12 +953,14 @@ function daepaeMorph(ox,oy,s,rot,open,col,edge,cookT,charT){  // 한 장의 띠:
   ctx.restore();
   charSpeck(charT,54,40); ctx.restore();
 }
-function drawDaepae(col,edge,cookT,charT,flipped){    // 생것=말린 롤 → 구우면 자연스럽게 펴짐
+function drawDaepae(col,edge,cookT,charT,flipped){    // 생것=말린 롤 → 구우면 제자리에서 자연스럽게 펴짐 (5장)
   const open=clamp((cookT-0.2)/0.5,0,1);
   ctx.save();
-  daepaeMorph(-15,-5, 0.72,-0.16, open, col,edge,cookT,charT);   // 뒤 왼
-  daepaeMorph( 17,-7, 0.74, 0.13, open, col,edge,cookT,charT);   // 뒤 오
-  daepaeMorph( -2, 9, 0.98,-0.05, open, col,edge,cookT,charT);   // 앞 큰
+  daepaeMorph(  1,-13, 0.62,-0.05, open, col,edge,cookT,charT);  // 뒤 가운데
+  daepaeMorph(-21,-8,  0.62,-0.12, open, col,edge,cookT,charT);  // 뒤 왼
+  daepaeMorph( 22,-8,  0.62, 0.1,  open, col,edge,cookT,charT);  // 뒤 오
+  daepaeMorph(-12, 9,  0.82,-0.06, open, col,edge,cookT,charT);  // 앞 왼
+  daepaeMorph( 13, 9,  0.84, 0.05, open, col,edge,cookT,charT);  // 앞 오
   ctx.restore();
 }
 function drawVienna(col,edge,cookT,charT){            // 비엔나 → 구우면 문어 다리로 벌어짐
