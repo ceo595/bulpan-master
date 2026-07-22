@@ -181,7 +181,7 @@ const MEAT={
   daechang:   {name:'대창',     base:100, perfect:[4.8,8.0], burnt:11.4, raw:'#eccdbd', cooked:'#a97046', char:'#2c1d13', kind:'daechang'},
   garlic:     {name:'마늘',     base:60,  perfect:[2.4,5.0], burnt:7.0,  raw:'#f3ecd6', cooked:'#c9a24e', char:'#3a2c18', kind:'garlic'},
   buchu:      {name:'부추',     base:60,  perfect:[1.4,3.2], burnt:4.8,  raw:'#5fa03a', cooked:'#3f6b24', char:'#26300f', kind:'buchu'},
-  daepae:     {name:'대패삼겹살',base:100,perfect:[2.0,4.0], burnt:5.8,  raw:'#f0aeb0', cooked:'#b06a3e', char:'#28190f', kind:'daepae'},
+  daepae:     {name:'대패삼겹살',base:100,perfect:[2.0,4.0], burnt:5.8,  raw:'#f2909d', cooked:'#b8663a', char:'#28190f', kind:'daepae'},
   vienna:     {name:'비엔나소시지',base:70,perfect:[2.2,4.6],burnt:6.6,  raw:'#e67a68', cooked:'#c05430', char:'#33231b', kind:'vienna'},
   rice:       {name:'흰밥',     base:40,  perfect:[3.0,6.0], burnt:8.0,  raw:'#fdf7ea', cooked:'#e7c68d', char:'#5a4636', kind:'rice'},
   gim:        {name:'김',       base:40,  perfect:[2.0,4.0], burnt:5.6,  raw:'#2f3d32', cooked:'#1c261f', char:'#0e130f', kind:'gim'},
@@ -295,10 +295,10 @@ function onDown(e){
   if(state==='play' && p.x>ADMIN.x && p.x<ADMIN.x+ADMIN.w && p.y>ADMIN.y && p.y<ADMIN.y+ADMIN.h){
     S.btn(); if(levelIdx>=LEVELS.length-1) winGame(); else startLevel(levelIdx+1); return; }
   if(state!=='play'){ handleButtons(p); return; }
-  if(friedMode()){                                   // 볶음밥: 웍 탭으로 볶기/완성/버리기
+  if(friedMode()){                                   // 볶음밥: 웍 탭 = 볶기/누르기/버리기
     if(onGrillArea(p.x,p.y) && wok && wok.items.length>0){
       if(wok.burnt){ discardWok(); return; }
-      if(wokReady()){ serveFriedRice(); return; }
+      if(wok.press>0 || wokCanPress()){ pressWok(); return; }   // 마지막: 주걱으로 꾹 눌러 누룽지
       stirWok(); return;
     }
     const src=trayHit(p);
@@ -378,100 +378,121 @@ function startLevel(i){
   levelIdx=i; const M=LMETA[i];
   target=M.target; timeLeft=M.time; combo=0; burntCount=0;
   pieces=[]; floats=[]; parts=[]; drag=null; plateItems=[]; plateCount=0;
-  wok = (LEVELS[i] && LEVELS[i].mode==='friedrice') ? {items:[], has:{}, fry:0, burnt:false, toss:0} : null;
+  wok = (LEVELS[i] && LEVELS[i].mode==='friedrice') ? {items:[], has:{}, fry:0, burnt:false, toss:0, press:0} : null;
   if(i===0){ score=0; cookedTypes=[]; }
   state='intro'; introT=0;
 }
 function friedMode(){ return !!(LEVELS[levelIdx] && LEVELS[levelIdx].mode==='friedrice'); }
 // ===== 볶음밥(조합) 메커닉 =====
 function wokCenter(){ return {x:GRILL.x+GRILL.w/2, y:GRILL.y+GRILL.h/2}; }
-function wokReady(){ if(!wok) return false; const tops=Object.keys(wok.has).filter(k=>k!=='rice').length;
-  return wok.has.rice && tops>=2 && wok.fry>=WFRY_PS && wok.fry<=WFRY_PE && !wok.burnt; }
-function addToWok(type){ if(!wok) return; if(wok.burnt) return;
-  const n = type==='rice'?8:6;                        // 한 번에 더 많이 들어감
+function wokTops(){ return wok?Object.keys(wok.has).filter(k=>k!=='rice').length:0; }
+function wokCanPress(){ return !!(wok && wok.has.rice && wokTops()>=2 && wok.fry>=WFRY_PS && !wok.burnt); }
+function addCookedType(t){ if(cookedTypes.indexOf(t)<0) cookedTypes.push(t); }
+function addToWok(type){ if(!wok || wok.burnt || wok.press>0) return;      // 누르기 시작하면 재료 못 넣음
+  const n = type==='rice'?9:6;                                             // 한 번에 넉넉히
   for(let k=0;k<n;k++) wok.items.push({type, a:rand(0,6.28), rr:Math.sqrt(rand(0.03,1)), hp:rand(0,1), sz:rand(0.85,1.25)});
-  while(wok.items.length>96) wok.items.shift();
-  wok.has[type]=true;
-  wok.toss=Math.max(wok.toss,0.7);                    // 넣으면 살짝 웍질
+  while(wok.items.length>120) wok.items.shift();
+  wok.has[type]=true; wok.toss=Math.max(wok.toss,0.7);
   if(typeof sizzleBurst==='function') sizzleBurst(0.55,0.18,1250);
-  const c=wokCenter(); for(let i=0;i<11;i++) parts.push(sizzP(c.x+rand(-42,42),c.y+rand(-24,20)));
-  if(type==='rice') say('밥을 볶아요!'); }
+  const c=wokCenter(); for(let i=0;i<11;i++) parts.push(sizzP(c.x+rand(-46,46),c.y+rand(-24,20)));
+  say(type==='rice'?'밥 투하!':(MEAT[type].name+' 넣기!')); }
 function stirWok(){ if(!wok) return; if(!wok.has.rice){ say('흰밥부터 넣어요!'); return; }
-  S.flip(); wok.fry+=0.28; wok.toss=1;                // 웍질! 재료가 밥이랑 섞임
+  S.flip(); wok.fry+=0.28; wok.toss=1;                                     // 주걱질! 재료가 밥이랑 섞임
   for(const b of wok.items){ b.a=rand(0,6.28); b.rr=Math.sqrt(rand(0.03,1)); b.hp=rand(0,1); }
-  const c=wokCenter(); for(let i=0;i<16;i++) parts.push(sizzP(c.x+rand(-54,54),c.y+rand(-32,12))); }
-function serveFriedRice(){ if(!wok) return;
-  const tops=Object.keys(wok.has).filter(k=>k!=='rice').length;
-  const mid=(WFRY_PS+WFRY_PE)/2, half=(WFRY_PE-WFRY_PS)/2;
-  const fq=clamp(1-Math.abs((wok.fry-mid)/half)*0.3,0.7,1);
-  const pts=Math.round((150+tops*70)*fq);
+  const c=wokCenter(); for(let i=0;i<16;i++) parts.push(sizzP(c.x+rand(-58,58),c.y+rand(-34,12))); }
+function pressWok(){ if(!wok || !wok.has.rice) return;                     // 마지막: 주걱으로 꾹 눌러 누룽지
+  wok.press=clamp(wok.press+0.34,0,1.3); wok.toss=Math.max(wok.toss,0.28);
+  S.flip(); crackle(); const c=wokCenter(); for(let i=0;i<14;i++) parts.push(sizzP(c.x+rand(-70,70),c.y+rand(-8,22)));
+  if(Math.random()<0.6) parts.push(steam(c.x+rand(-40,40),c.y-8));
+  if(wok.press>=1) completeNurungji(); }
+function completeNurungji(){ if(!wok) return; const tops=wokTops();
+  const pts=Math.round(160+tops*80);
   score+=pts; combo++; bestCombo=Math.max(bestCombo,combo);
-  S.serveGood(); say('볶음밥 완성!'); mascot.mood='happy'; mascot.t=1.0;
-  floats.push({x:PLATE.x,y:PLATE.y-30,txt:'볶음밥 +'+pts,c:'#2ea86a',t:0});
-  const c=wokCenter(); for(let i=0;i<18;i++) parts.push(spark(c.x,c.y,'#ffcf5a'));
-  addPlateItem('friedrice'); resetWok(); }
-function resetWok(){ if(wok){ wok.items=[]; wok.has={}; wok.fry=0; wok.burnt=false; } }
+  S.serveGood(); say('바삭 누룽지 완성!'); mascot.mood='happy'; mascot.t=1.2;
+  const c=wokCenter(); floats.push({x:c.x,y:c.y-44,txt:'누룽지 볶음밥 +'+pts,c:'#e0843a',t:0});
+  for(let i=0;i<22;i++) parts.push(spark(c.x+rand(-64,64),c.y+rand(-30,26),'#ffcf5a'));
+  addCookedType('friedrice'); resetWok(); }
+function resetWok(){ if(wok){ wok.items=[]; wok.has={}; wok.fry=0; wok.press=0; wok.toss=0; wok.burnt=false; } }
 function discardWok(){ S.trash(); combo=0; say('아까워라…'); const c=wokCenter(); for(let i=0;i<8;i++) parts.push(smoke(c.x,c.y-10)); resetWok(); }
 function onBurnWok(){ S.burn(); say('밥이 타요!'); mascot.mood='sad'; mascot.t=1.0; shake=6; }
 function updateWok(dt){
   if(!wok) return;
   if(wok.toss>0) wok.toss=Math.max(0,wok.toss-dt*2.4);   // 웍질 애니 감쇠
   if(wok.items.length>0 && wok.has.rice && !wok.burnt){
-    wok.fry+=dt; const c=wokCenter();
-    setSizzle(clamp(0.5+wok.items.length*0.02,0.5,1));
+    if(wok.press<1) wok.fry+=dt*(wok.press>0?0.4:1);       // 누르는 중엔 천천히 익음
+    const c=wokCenter();
+    setSizzle(clamp(0.5+wok.items.length*0.015,0.5,1));
     if(Math.random()<dt*8) crackle();
-    if(Math.random()<dt*8) parts.push(sizzP(c.x+rand(-50,50),c.y+rand(-24,20)));
-    if(wok.fry>0.8 && Math.random()<dt*4) parts.push(steam(c.x+rand(-34,34),c.y-12));
-    if(wok.fry>WFRY_PE && Math.random()<dt*3) parts.push(smoke(c.x+rand(-30,30),c.y-12));
+    if(Math.random()<dt*8) parts.push(sizzP(c.x+rand(-56,56),c.y+rand(-24,20)));
+    if(wok.fry>0.8 && Math.random()<dt*4) parts.push(steam(c.x+rand(-40,40),c.y-12));
+    if(wok.fry>WFRY_PE && wok.press<0.2 && Math.random()<dt*3) parts.push(smoke(c.x+rand(-34,34),c.y-12));
     if(wok.fry>=WBURN){ wok.burnt=true; onBurnWok(); }
   } else setSizzle(0);
 }
 function drawWokContents(){
   if(!wok) return; const c=wokCenter();
   if(wok.items.length===0){ ctx.fillStyle='#f0dcc2'; ctx.font=(portrait?'20px':'16px')+' Jua,sans-serif'; ctx.textAlign='center';
-    ctx.fillText('흰밥과 재료를 웍에 넣어 볶으세요!',c.x,c.y+4); return; }
-  const tsec=now()/1000;
-  const grow=0.66+0.34*clamp(wok.items.length/44,0,1);      // 재료 많을수록 밥 무더기 커짐
-  const R=Math.min(GRILL.w,GRILL.h)*0.42*grow;
-  const hop=Math.sin(clamp(wok.toss,0,1)*Math.PI);          // 웍질 호(솟았다 내려옴)
-  const bob=(wok.fry>0?1:0)*Math.sin(tsec*3)*2.2;           // 볶는 중 잔진동
-  const lift=-hop*22 + bob;
-  const tilt=hop*0.05*Math.sin(tsec*26);
-  const riceCol=mix('#fdf6e3', wok.burnt?'#4a3528':'#e9c489', clamp(wok.fry/WBURN,0,1));
-  ctx.save(); ctx.translate(c.x,c.y+lift); ctx.rotate(tilt);
-  ctx.fillStyle=mix(riceCol,'#000000',0.08); ctx.beginPath(); ctx.ellipse(0,14,R,R*0.5,0,0,Math.PI*2); ctx.fill();
-  ctx.fillStyle=riceCol; ctx.beginPath(); ctx.ellipse(0,2,R*0.92,R*0.46,0,0,Math.PI*2); ctx.fill();
-  ctx.fillStyle=mix(riceCol,'#ffffff',0.14); ctx.beginPath(); ctx.ellipse(-R*0.15,-6,R*0.6,R*0.32,0,0,Math.PI*2); ctx.fill();
-  const grains=Math.min(130, 55+wok.items.length);
-  for(let i=0;i<grains;i++){ const a=prr(i*2+1,0,6.28), rr2=prr(i*2+2,0,1); const rx=Math.cos(a)*R*0.84*Math.sqrt(rr2), ry=Math.sin(a)*R*0.42*Math.sqrt(rr2);
-    ctx.save(); ctx.translate(rx,ry); ctx.rotate(a); ctx.fillStyle=mix(riceCol,'#ffffff',prr(i+9,0,0.4)); ctx.beginPath(); ctx.ellipse(0,0,3.2,1.9,0,0,Math.PI*2); ctx.fill(); ctx.restore(); }
+    ctx.fillText('흰밥과 재료를 넣고 볶아요!',c.x,c.y+4); return; }
+  const tsec=now()/1000, crisp=clamp(wok.press,0,1);
+  const RX=GRILL.w*0.40, RY=GRILL.h*0.33;
+  const hop=Math.sin(clamp(wok.toss,0,1)*Math.PI);
+  const bob=(wok.fry>0?1:0)*Math.sin(tsec*3)*1.6;
+  const lift=-hop*16 + bob - crisp*4;                        // 누르면 살짝 내려앉음
+  let riceCol=mix('#f4e6c2','#e28a34', wok.has.kimchi?0.55:0.18);   // 김치 있으면 주황 볶음밥
+  riceCol=mix(riceCol,'#b96a24', clamp(wok.fry/WBURN,0,1)*0.5);
+  if(wok.burnt) riceCol=mix(riceCol,'#4a3528',0.6);
+  ctx.save(); ctx.translate(c.x,c.y+lift);
+  const rx=RX*(1+crisp*0.14), ry=RY*(1-crisp*0.16);
+  if(crisp>0){ ctx.fillStyle=mix('#c47a2e','#7c4a1c',crisp); ctx.beginPath(); ctx.ellipse(0,7,rx*1.03,ry*1.05,0,0,Math.PI*2); ctx.fill(); }  // 눌러 만든 누룽지 바닥
+  ctx.fillStyle='rgba(60,35,18,.18)'; ctx.beginPath(); ctx.ellipse(0,ry*0.5,rx,ry*0.5,0,0,Math.PI*2); ctx.fill();
+  ctx.fillStyle=riceCol; ctx.beginPath(); ctx.ellipse(0,0,rx,ry,0,0,Math.PI*2); ctx.fill();       // 납작하게 펼친 밥
+  const grains=Math.min(150,60+wok.items.length);
+  for(let i=0;i<grains;i++){ const a=prr(i*2+1,0,6.28), r2=prr(i*2+2,0,1); const gx=Math.cos(a)*rx*0.92*Math.sqrt(r2), gy=Math.sin(a)*ry*0.9*Math.sqrt(r2);
+    ctx.save(); ctx.translate(gx,gy); ctx.rotate(a); ctx.fillStyle=mix(riceCol,'#fff5df',prr(i+9,0,0.4)); ctx.beginPath(); ctx.ellipse(0,0,3,1.8,0,0,Math.PI*2); ctx.fill(); ctx.restore(); }
   const fc={kimchi:'#d33a1e', gim:'#26302a', roe:'#ff8a2a', cheese:'#ffd24d'};
   wok.items.forEach((it,i)=>{ if(it.type==='rice')return; const col=fc[it.type]||'#c96';
-    const rx=Math.cos(it.a)*R*0.8*it.rr, baseY=Math.sin(it.a)*R*0.4*it.rr;
-    const bh = hop>0 ? Math.sin(clamp(hop*Math.PI - (it.hp||0)*1.1,0,Math.PI))*(16+(it.hp||0)*20) : 0;  // 개별로 튀어오름
-    const ry = baseY - bh; const sz=(it.sz||1);
-    ctx.save(); ctx.translate(rx,ry); ctx.fillStyle=col;
-    if(it.type==='gim'){ ctx.rotate(it.a); ctx.fillRect(-6.5*sz,-6.5*sz,13*sz,13*sz); }
-    else if(it.type==='roe'){ for(let k=0;k<4;k++){ circle(prr(i*4+k+1,-6,6),prr(i*4+k+2,-5,5),2.7*sz); ctx.fill(); } }
-    else if(it.type==='cheese'){ ctx.globalAlpha=0.9; circle(0,0,7.2*sz); ctx.fill(); ctx.globalAlpha=1; ctx.fillStyle='rgba(255,240,180,.7)'; circle(-2,-2,3*sz); ctx.fill(); }
-    else { circle(0,0,6.6*sz); ctx.fill(); ctx.fillStyle=mix(col,'#ffffff',0.32); circle(-1.8,-1.8,2.4*sz); ctx.fill(); }
+    const bx=Math.cos(it.a)*rx*0.86*it.rr, byB=Math.sin(it.a)*ry*0.82*it.rr;
+    const bh = hop>0 ? Math.sin(clamp(hop*Math.PI-(it.hp||0)*1.1,0,Math.PI))*(14+(it.hp||0)*18) : 0;
+    const by=byB-bh, sz=(it.sz||1)*(1-crisp*0.12);
+    ctx.save(); ctx.translate(bx,by); ctx.fillStyle=col;
+    if(it.type==='gim'){ ctx.rotate(it.a); ctx.fillRect(-6*sz,-6*sz,12*sz,12*sz); }
+    else if(it.type==='roe'){ for(let k=0;k<4;k++){ circle(prr(i*4+k+1,-6,6),prr(i*4+k+2,-5,5),2.5*sz); ctx.fill(); } }
+    else if(it.type==='cheese'){ ctx.globalAlpha=0.9; circle(0,0,7*sz); ctx.fill(); ctx.globalAlpha=1; }
+    else { circle(0,0,6.4*sz); ctx.fill(); ctx.fillStyle=mix(col,'#ffffff',0.3); circle(-1.6,-1.6,2.3*sz); ctx.fill(); }
     ctx.restore(); });
+  if(crisp>0.15){ ctx.globalAlpha=crisp*0.5; ctx.fillStyle='#ffd98a'; for(let i=0;i<22;i++){ const a=prr(i*3+2,0,6.28), r2=prr(i*3+3,0.3,1); circle(Math.cos(a)*rx*0.82*r2, Math.sin(a)*ry*0.78*r2, prr(i+4,1.5,3)); ctx.fill(); } ctx.globalAlpha=1; }
   ctx.restore();
-  drawWokGauge(c.x,c.y,R);
+  drawSpatula(c, tsec, hop);
+  drawWokGauge(c, RX, RY);
 }
-function drawWokGauge(cx,cy,R){
-  const gr=R+18, frac=clamp(wok.fry/WBURN,0,1), ps=WFRY_PS/WBURN, pe=WFRY_PE/WBURN;
-  ctx.beginPath(); ctx.arc(cx,cy,gr,-Math.PI/2,-Math.PI/2+Math.PI*2); ctx.strokeStyle='rgba(0,0,0,.18)'; ctx.lineWidth=7; ctx.stroke();
-  ctx.beginPath(); ctx.arc(cx,cy,gr,-Math.PI/2+Math.PI*2*ps,-Math.PI/2+Math.PI*2*pe); ctx.strokeStyle='rgba(79,208,138,.4)'; ctx.lineWidth=13; ctx.stroke();
+function drawSpatula(c, tsec, hop){
+  let sx, sy, rot;
+  if(wok.press>0){ sx=c.x; sy=c.y-8+Math.sin(tsec*9)*2; rot=-0.55; }           // 누를 땐 가운데를 꾹꾹
+  else { const sweep=Math.sin(tsec*2.2); sx=c.x+sweep*GRILL.w*0.15; sy=c.y-6-hop*10; rot=-0.7+sweep*0.28; }  // 볶을 땐 좌우로 쓸기
+  ctx.save(); ctx.translate(sx,sy); ctx.rotate(rot);
+  ctx.strokeStyle='#7c4a26'; ctx.lineCap='round'; ctx.lineWidth=9; ctx.beginPath(); ctx.moveTo(4,0); ctx.lineTo(70,-46); ctx.stroke();
+  ctx.strokeStyle='#a56b3e'; ctx.lineWidth=4.5; ctx.beginPath(); ctx.moveTo(4,0); ctx.lineTo(70,-46); ctx.stroke();
+  ctx.save(); ctx.rotate(0.55);
+  ctx.fillStyle='#b07a44'; rr(-22,-9,44,32,11); ctx.fill(); ctx.strokeStyle='#7c4a26'; ctx.lineWidth=2; ctx.stroke();
+  ctx.fillStyle='rgba(255,255,255,.14)'; rr(-16,-4,32,11,6); ctx.fill();
+  ctx.restore(); ctx.restore();
+}
+function drawWokGauge(c, RX, RY){
+  const cx=c.x, cy=c.y, gr=Math.max(RX,RY)+(portrait?36:26), gy=gr*0.9;
+  const frac=clamp(wok.fry/WBURN,0,1), ps=WFRY_PS/WBURN, pe=WFRY_PE/WBURN;
+  ctx.beginPath(); ctx.ellipse(cx,cy,gr,gy,0,-Math.PI/2,-Math.PI/2+Math.PI*2); ctx.strokeStyle='rgba(0,0,0,.16)'; ctx.lineWidth=6; ctx.stroke();
+  ctx.beginPath(); ctx.ellipse(cx,cy,gr,gy,0,-Math.PI/2+Math.PI*2*ps,-Math.PI/2+Math.PI*2*pe); ctx.strokeStyle='rgba(79,208,138,.4)'; ctx.lineWidth=11; ctx.stroke();
   let col='#7fb8e0'; if(frac<ps)col='#7fb8e0'; else if(frac<=pe)col='#4fd08a'; else col=mix('#ffd24d','#ff5a3c',(frac-pe)/(1-pe)); if(wok.burnt)col='#3a3a3a';
-  ctx.beginPath(); ctx.arc(cx,cy,gr,-Math.PI/2,-Math.PI/2+Math.PI*2*frac); ctx.strokeStyle=col; ctx.lineWidth=7; ctx.lineCap='round'; ctx.stroke();
+  ctx.beginPath(); ctx.ellipse(cx,cy,gr,gy,0,-Math.PI/2,-Math.PI/2+Math.PI*2*frac); ctx.strokeStyle=col; ctx.lineWidth=6; ctx.lineCap='round'; ctx.stroke();
+  if(wok.press>0){ const bw=180,x=cx-bw/2,y=cy+gy+14; rr(x,y,bw,13,7); ctx.fillStyle='rgba(0,0,0,.15)'; ctx.fill(); rr(x,y,bw*clamp(wok.press,0,1),13,7); ctx.fillStyle='#e0843a'; ctx.fill(); }
   let txt=null,bg=null;
   if(wok.burnt){ txt='탔어요! 탭해서 버리기'; bg='#5a4a44'; }
-  else if(wokReady()){ txt='완성! 탭해서 담기'; bg='#2ea86a'; }
+  else if(wok.press>0){ txt='꾹꾹! 누룽지 만드는 중'; bg='#e0843a'; }
+  else if(wokCanPress()){ txt='노릇! 주걱으로 꾹 눌러 누룽지'; bg='#2ea86a'; }
   else if(!wok.has.rice){ txt='흰밥부터 넣어요'; bg='#c9781f'; }
-  else if(wok.fry<WFRY_PS){ txt='탭해서 더 볶기'; bg='#3aa0e0'; }
-  else if(wok.fry>WFRY_PE){ txt='너무 볶았어요!'; bg='#d0402e'; }
-  if(txt) bubble(cx,cy-gr-16,txt,bg);
+  else if(wok.fry<WFRY_PS){ txt='재료 넣고 탭해서 볶기'; bg='#3aa0e0'; }
+  else { txt='조금 더 볶아요'; bg='#3aa0e0'; }
+  if(txt) bubble(cx, cy-gy-16, txt, bg);
 }
 function toPlay(){ state='play'; }
 function levelClear(){ state='clear'; setSizzle(0); S.win(); mascot.mood='happy'; say('클리어!'); }
@@ -528,7 +549,7 @@ function draw(){
   if(shake>0) ctx.translate(rand(-shake,shake),rand(-shake,shake));
   drawBackground();
   if(state==='play'||state==='clear'||state==='over'||state==='win'){
-    drawGrill(); if(friedMode()) drawWokContents(); drawTrash(); drawPlate(); drawTray();
+    drawGrill(); if(friedMode()){ drawWokContents(); } else { drawTrash(); drawPlate(); } drawTray();
     const sorted=pieces.slice().sort((a,b)=>(a.dragging?1e6:a.y)-(b.dragging?1e6:b.y));
     for(const p of sorted) drawPiece(p);
     drawParticles();
@@ -894,28 +915,38 @@ function drawSausage(col,edge,cookT,charT,flipped,m){
   ctx.restore();
 }
 // ===== 신규 재료 아트 =====
-function drawDaepae(col,edge,cookT,charT,flipped){   // 대패삼겹살 (도르르 말린 차돌박이 스타일)
+function daepaeRoll(ox,oy,s,col,edge,cookT,charT){    // 대패삼겹살 롤 한 개(말린 튜브)
+  ctx.save(); ctx.translate(ox,oy); ctx.scale(s,s);
+  const rx=15, ry=6, topY=-16, botY=16;
+  const fat=mix('#fff4ec', mix('#e6c69c','#6a5040',charT), cookT*0.45);
+  // 옆면(원기둥) 클립 후 가로 삼겹살 줄무늬
   ctx.save();
-  const RX=44, RY=40*(1-cookT*0.06);                 // 익으면 살짝 수축
-  const fat=mix('#fff2ea', mix('#e6c69c','#5a463a',charT), cookT*0.55);
-  // 롤 바탕
-  ctx.beginPath(); ctx.ellipse(0,0,RX,RY,0,0,Math.PI*2); ctx.fillStyle=edge; ctx.fill();
-  ctx.save(); ctx.beginPath(); ctx.ellipse(0,0,RX-2,RY-2,0,0,Math.PI*2); ctx.clip();
-  const bg=ctx.createRadialGradient(-RX*0.25,-RY*0.25,3,0,0,RX); bg.addColorStop(0,mix(col,'#ffffff',0.2)); bg.addColorStop(1,mix(col,'#000000',0.12));
-  ctx.fillStyle=bg; ctx.fillRect(-RX,-RY,RX*2,RY*2);
-  const turns=3.4, steps=200;
-  // 지방 나선 (말린 결)
-  ctx.strokeStyle=fat; ctx.lineWidth=4.4; ctx.lineCap='round'; ctx.globalAlpha=0.92*(1-charT*0.4);
-  ctx.beginPath(); for(let i=0;i<=steps;i++){ const t=i/steps, ang=t*turns*Math.PI*2, rad=4+t*(RX-4), x=Math.cos(ang)*rad, y=Math.sin(ang)*rad*0.9; i?ctx.lineTo(x,y):ctx.moveTo(x,y); } ctx.stroke();
-  // 살코기 결(지방 사이 어두운 선)
-  ctx.strokeStyle=mix(col,'#000000',0.22); ctx.lineWidth=1.6; ctx.globalAlpha=0.45*(1-charT*0.4);
-  ctx.beginPath(); for(let i=0;i<=steps;i++){ const t=i/steps, ang=t*turns*Math.PI*2+0.55, rad=4+t*(RX-4), x=Math.cos(ang)*rad, y=Math.sin(ang)*rad*0.9; i?ctx.lineTo(x,y):ctx.moveTo(x,y); } ctx.stroke();
-  ctx.globalAlpha=1;
-  // 구운 윤기
-  ctx.globalAlpha=clamp(0.3+cookT*0.4-charT*0.5,0,0.7); const gl=ctx.createRadialGradient(-RX*0.3,-RY*0.35,2,-RX*0.3,-RY*0.35,RX*0.7); gl.addColorStop(0,'rgba(255,255,255,.85)'); gl.addColorStop(1,'rgba(255,255,255,0)'); ctx.fillStyle=gl; ctx.fillRect(-RX,-RY,RX*2,RY*2); ctx.globalAlpha=1;
+  ctx.beginPath(); ctx.moveTo(-rx,topY); ctx.quadraticCurveTo(0,topY+ry,rx,topY); ctx.lineTo(rx,botY); ctx.quadraticCurveTo(0,botY+ry,-rx,botY); ctx.closePath(); ctx.clip();
+  const bg=ctx.createLinearGradient(-rx,0,rx,0); bg.addColorStop(0,mix(col,'#000000',0.2)); bg.addColorStop(0.5,mix(col,'#ffffff',0.04)); bg.addColorStop(1,mix(col,'#000000',0.22));
+  ctx.fillStyle=bg; ctx.fillRect(-rx-2,topY-ry,rx*2+4,botY-topY+ry*2+6);
+  const bands=4;
+  for(let i=0;i<bands;i++){ const yy=topY+3 + i*((botY-topY-6)/(bands-1));
+    ctx.globalAlpha=0.9*(1-charT*0.4); ctx.strokeStyle=fat; ctx.lineWidth=2.6; ctx.beginPath(); ctx.moveTo(-rx,yy); ctx.quadraticCurveTo(0,yy+2.4,rx,yy); ctx.stroke();
+    ctx.globalAlpha=0.35*(1-charT*0.4); ctx.strokeStyle=mix(col,'#000000',0.22); ctx.lineWidth=1.1; ctx.beginPath(); ctx.moveTo(-rx,yy+2.6); ctx.quadraticCurveTo(0,yy+5,rx,yy+2.6); ctx.stroke(); ctx.globalAlpha=1; }
   ctx.restore();
-  ctx.beginPath(); ctx.ellipse(0,0,RX,RY,0,0,Math.PI*2); ctx.strokeStyle=edge; ctx.lineWidth=2; ctx.stroke();
-  charSpeck(charT,RX*2,RY*2); ctx.restore();
+  // 외곽선
+  ctx.beginPath(); ctx.moveTo(-rx,topY); ctx.quadraticCurveTo(0,topY+ry,rx,topY); ctx.lineTo(rx,botY); ctx.quadraticCurveTo(0,botY+ry,-rx,botY); ctx.closePath(); ctx.strokeStyle=edge; ctx.lineWidth=1.4; ctx.stroke();
+  // 윗면(말린 끝) 타원 + 나선 + 구멍
+  ctx.beginPath(); ctx.ellipse(0,topY,rx,ry,0,0,Math.PI*2); ctx.fillStyle=mix(col,'#ffffff',0.06); ctx.fill(); ctx.strokeStyle=edge; ctx.lineWidth=1.3; ctx.stroke();
+  ctx.save(); ctx.beginPath(); ctx.ellipse(0,topY,rx-0.6,ry-0.6,0,0,Math.PI*2); ctx.clip();
+  ctx.strokeStyle=fat; ctx.lineWidth=1.7; ctx.globalAlpha=0.85; for(let r=rx-2;r>1.5;r-=3){ ctx.beginPath(); ctx.ellipse(0,topY,r,Math.max(0.7,r*ry/rx),0,0,Math.PI*2); ctx.stroke(); } ctx.globalAlpha=1; ctx.restore();
+  ctx.beginPath(); ctx.ellipse(0,topY,rx*0.26,ry*0.42,0,0,Math.PI*2); ctx.fillStyle=mix(col,'#3a2016',0.55); ctx.fill();
+  // 살짝 광
+  ctx.globalAlpha=clamp(0.25+cookT*0.35-charT*0.5,0,0.55); ctx.fillStyle='rgba(255,255,255,.7)'; ctx.beginPath(); ctx.ellipse(-rx*0.35,-2,3,10,0.2,0,Math.PI*2); ctx.fill(); ctx.globalAlpha=1;
+  ctx.restore();
+}
+function drawDaepae(col,edge,cookT,charT,flipped){    // 대패삼겹살 (말린 롤 여러 개가 쌓인 모양)
+  ctx.save();
+  daepaeRoll(-17,-3,0.82,col,edge,cookT,charT);       // 뒤 왼쪽
+  daepaeRoll(17,-5,0.86,col,edge,cookT,charT);        // 뒤 오른쪽
+  daepaeRoll(1,9,1.16,col,edge,cookT,charT);          // 앞 큰 롤
+  charSpeck(charT,84,72);
+  ctx.restore();
 }
 function drawVienna(col,edge,cookT,charT){            // 비엔나 → 구우면 문어 다리로 벌어짐
   ctx.save(); const spread=clamp(cookT,0,1), legN=4, byBot=8;
