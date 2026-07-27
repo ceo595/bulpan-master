@@ -263,6 +263,7 @@ let wok=null;                                   // 레벨8 볶음밥 웍 상태
 let greaseBank=0;                               // 고기 잘 구운 만큼 쌓이는 기름(마지막 볶음밥에 영향)
 const WFRY_PS=2.4, WFRY_PE=4.8, WBURN=6.6;      // (구버전) 볶기 구간
 let mascot={mood:'idle', t:0, say:'', sayT:0};
+let gomiIdle=4;                                  // 곰이 잡담 타이머
 let idc=1, introT=0, shake=0, downPt=null;
 
 /* ---------- 난이도(직급) ---------- */
@@ -337,7 +338,7 @@ function onDown(e){
   const hit=pieceAt(p.x,p.y);
   if(hit){ drag=hit; hit.dragging=true; hit.gdx=p.x-hit.x; hit.gdy=p.y-hit.y; hit.wasGrill=hit.onGrill; hit.ox=hit.x; hit.oy=hit.y; return; }
   const src=trayHit(p);
-  if(src && pieces.length<MAXP){ const np=newPiece(src,p.x,p.y); np.dragging=true; np.pop=1; pieces.push(np); drag=np; }  // 집을 때 무음
+  if(src && pieces.length<MAXP){ const np=newPiece(src,p.x,p.y); np.dragging=true; np.pop=1; pieces.push(np); drag=np; mascot.mood='excited'; mascot.t=0.5; }  // 고기 발견! (집을 때 무음)
 }
 function onMove(e){ const p=pos(e);
   if(state==='ssam'){ if(ssam&&ssam.drag){ e.preventDefault(); ssam.drag.x=p.x; ssam.drag.y=p.y; } return; }
@@ -365,14 +366,14 @@ function onUp(e){
   if(d.wasGrill){ d.onGrill=true; d.x=d.ox; d.y=d.oy; return; }   // 원위치
   removePiece(d);                                                  // 트레이 취소
 }
-function flipFX(p){ S.flip(); for(let i=0;i<10;i++) parts.push(spark(p.x,p.y,'#ffd98a')); mascot.mood='happy'; mascot.t=0.5; }
+function flipFX(p){ S.flip(); for(let i=0;i<10;i++) parts.push(spark(p.x,p.y,'#ffd98a')); mascot.mood='excited'; mascot.t=0.6; say('뒤집기!'); }
 
 function serve(p){
   const r=pieceResult(p), m=MEAT[p.type];
   if(r.burnt || r.over){
     const pen = r.burnt? -Math.round(m.base*0.6) : -Math.round(m.base*0.35);
     score+=pen; combo=0; burntCount++;
-    S.burn(); shake=8; mascot.mood='sad'; mascot.t=1.2; say(r.burnt?'앗, 탔어요!':'오버쿡!');
+    S.burn(); shake=8; mascot.mood=r.burnt?'burnt':'meh'; mascot.t=1.4; say(r.burnt?'앗, 탔다!!':'에이~ 오버쿡...');
     floats.push({x:PLATE.x,y:PLATE.y-30,txt:(r.burnt?'탄 고기 ':'오버쿡 ')+pen,c:'#d0402e',t:0});
     for(let i=0;i<12;i++) parts.push(smoke(PLATE.x,PLATE.y));
   } else {
@@ -383,8 +384,8 @@ function serve(p){
     greaseBank=clamp(greaseBank+r.q*0.09,0,1.6);   // 잘 구울수록 기름이 남아 마지막 볶음밥에 반영
     const perfect=r.q>0.9;
     servedTypes[p.type]=true; if(perfect) perfectTypes[p.type]=true;   // 모둠 콤보 커버리지 기록
-    if(perfect){ S.serveGood(); say('완벽해요!'); } else { S.serveOk(); say('좋아요~'); }
-    mascot.mood='happy'; mascot.t=0.9;
+    if(perfect){ S.serveGood(); say('완벽해!'); mascot.mood='success'; } else { S.serveOk(); say('좋아좋아~'); mascot.mood='happy'; }
+    mascot.t=1.0;
     const lbl=(perfect?'완벽! ':'')+'+'+pts+(mult>1?(' x'+(+mult.toFixed(2))):'');
     floats.push({x:PLATE.x,y:PLATE.y-30,txt:lbl,c:perfect?'#2ea86a':'#c9781f',t:0});
     for(let i=0;i<(perfect?16:8);i++) parts.push(spark(PLATE.x,PLATE.y-10, perfect?'#4fd08a':'#ffcf5a'));
@@ -406,8 +407,8 @@ function maybeComboBonus(){
   for(let i=0;i<40;i++){ const a=i/40*6.283; parts.push({x:W/2,y:H*0.42,vx:Math.cos(a)*rand(120,240),vy:Math.sin(a)*rand(120,240)-40,g:140,life:rand(0.7,1.2),t:0,c:['#ff7a4d','#ffce4d','#5ac86a','#ff5d8f','#5aa9ff'][i%5],r:rand(3,5),kind:'spark'}); }
 }
 function trash(p){
-  if(p.burnt){ S.trash(); say('잘 치웠어요'); mascot.mood='idle'; }
-  else { S.trash(); combo=0; say('아까워라…'); }
+  if(p.burnt){ S.trash(); say('됐다!!'); mascot.mood='happy'; mascot.t=0.8; }
+  else { S.trash(); combo=0; say('에이~ 아까워'); mascot.mood='meh'; mascot.t=0.9; }
   for(let i=0;i<6;i++) parts.push(smoke(TRASH.x,TRASH.y-10));
   removePiece(p);
 }
@@ -437,6 +438,7 @@ function startLevel(i){
   servedTypes={}; perfectTypes={}; comboGiven=false; bonusFlash=null;
   wok = fried ? initWok() : null;
   if(i===0){ score=0; cookedTypes=[]; greaseBank=0; ssamResult=null; friedResult=null; }
+  gomiIdle=5; mascot.mood='excited'; mascot.t=1.4; say('오늘도 화이팅!');
   state='intro'; introT=0;
 }
 function friedMode(){ return !!(LEVELS[levelIdx] && LEVELS[levelIdx].mode==='friedrice'); }
@@ -501,13 +503,13 @@ function computeFriedScore(){ const tops=wokTops();
   wok.react={emoji:e,text:t}; }
 function serveFried(){ if(!wok||wok.phase!=='serve') return;
   score+=wok.finalPts; combo++; bestCombo=Math.max(bestCombo,combo); wok.phase='react';
-  if(wok.finalPts>=300){ S.serveGood(); mascot.mood='happy'; mascot.t=1.4; } else S.serveOk();
+  if(wok.finalPts>=300){ S.serveGood(); mascot.mood='success'; mascot.t=1.6; } else { S.serveOk(); mascot.mood='happy'; mascot.t=1.2; }
   floats.push({x:W/2,y:H*0.42,txt:'볶음밥 +'+wok.finalPts,c:'#e0843a',t:0});
   const c=wokCenter(); for(let i=0;i<26;i++) parts.push(spark(c.x+rand(-70,70),c.y+rand(-34,24), wok.finalPts>=300?'#ffd24d':'#ffcf5a'));
   say(wok.react.text); }
 function discardWok(){ if(!wok) return; S.trash(); say('처음부터 다시 볶아요'); const c=wokCenter(); for(let i=0;i<8;i++) parts.push(smoke(c.x,c.y-10));
   wok.items=[]; wok.has={}; wok.fry=0; wok.press=0; wok.burnt=false; wok.phase='cook'; }
-function onBurnWok(){ S.burn(); say('밥이 타요!'); mascot.mood='sad'; mascot.t=1.0; shake=6; }
+function onBurnWok(){ S.burn(); say('헉! 밥이 타요!'); mascot.mood='burnt'; mascot.t=1.3; shake=6; }
 function updateWok(dt){ if(!wok) return;
   if(wok.toss>0) wok.toss=Math.max(0,wok.toss-dt*2.4);
   if(wok.stir.active>0) wok.stir.active=Math.max(0,wok.stir.active-dt*3);
@@ -677,17 +679,17 @@ function drawWokUI(){ if(!wok) return; const c=wokCenter();
 }
 function toPlay(){ state='play'; }
 function levelClear(){ maybeComboBonus(); state='clear'; clearT=0; clearSpawn=0; setSizzle(0);
-  S.fanfare(); S.applause(); mascot.mood='happy'; say('클리어!'); }
-function gameOver(){ state='over'; setSizzle(0); S.lose(); mascot.mood='sad'; say('시간 종료…'); }
+  S.fanfare(); S.applause(); mascot.mood='success'; mascot.t=99; say('대성공!!'); }
+function gameOver(){ state='over'; setSizzle(0); S.lose(); mascot.mood='hungry'; mascot.t=99; say('배고파…ㅠ'); }
 function winGame(){ state='win'; clearT=0; clearSpawn=0; setSizzle(0);
-  S.fanfare(); S.applause(); mascot.mood='happy'; say('사장님 인정!'); }
+  S.fanfare(); S.applause(); mascot.mood='love'; mascot.t=99; say('행복해~'); }
 
 function handleButtons(p){ for(const b of buttons){ if(p.x>b.x&&p.x<b.x+b.w&&p.y>b.y&&p.y<b.y+b.h){ S.btn(); b.fn(); return true; } } return false; }
 
 /* ---------- 업데이트 ---------- */
 let last=now();
 function update(dt){
-  mascot.t-=dt; if(mascot.t<=0) mascot.mood='idle';
+  mascot.t-=dt; if(mascot.t<=0 && state==='play') mascot.mood='idle';   // 엔딩 화면 표정은 유지
   mascot.sayT-=dt; if(mascot.sayT<=0) mascot.say='';
   if(shake>0) shake=Math.max(0,shake-dt*40);
   for(const f of floats){ f.t+=dt; f.y-=dt*40; }
@@ -709,6 +711,11 @@ function update(dt){
 
   if(state==='play'){
     if(!friedMode()) timeLeft-=dt;                 // 볶음밥 피날레는 시간 압박 없음
+    if(!friedMode()){ gomiIdle-=dt;                // 곰이 잡담 (한가할 때 살아있는 느낌)
+      if(gomiIdle<=0 && mascot.sayT<=0){ gomiIdle=rand(5,9);
+        const cooking=pieces.some(p=>p.onGrill&&!p.burnt&&!p.dragging&&(p.flipped?p.d2:p.d1)>0.4);
+        if(cooking){ say('츄릅... 맛있겠다'); mascot.mood='hungry'; mascot.t=1.6; }
+        else say(['고기...','오늘도 화이팅!','...','손님 안 오시나~'][Math.floor(Math.random()*4)]); } }
     if(friedMode()){ updateWok(dt); } else {
     let cooking=0;
     for(const p of pieces){
@@ -732,7 +739,7 @@ function update(dt){
     if(!friedMode() && timeLeft<=0){ timeLeft=0; if(score>=target) levelClear(); else gameOver(); }  // 시간 종료 시 누적점수로 판정
   } else { setSizzle(0); }
 }
-function onBurn(p){ S.burn(); say('타는 냄새!'); mascot.mood='sad'; mascot.t=1.0; for(let i=0;i<10;i++) parts.push(smoke(p.x+rand(-16,16),p.y-8)); }
+function onBurn(p){ S.burn(); say('헉! 타버렸어…'); mascot.mood='burnt'; mascot.t=1.3; for(let i=0;i<10;i++) parts.push(smoke(p.x+rand(-16,16),p.y-8)); }
 
 /* ---------- 그리기 ---------- */
 function draw(){
@@ -1623,28 +1630,89 @@ function drawHUD(){
 }
 function panel(x,y,w,h){ rr(x,y,w,h,12); ctx.fillStyle='rgba(255,255,255,.72)'; ctx.fill(); ctx.strokeStyle='rgba(210,160,120,.5)'; ctx.lineWidth=1.5; ctx.stroke(); }
 
-/* ---------- 마스코트 ---------- */
-function drawMascot(){
-  const x=MASCOT.x,y=MASCOT.y, t=now()/1000;
-  ctx.save(); ctx.translate(x,y+Math.sin(t*2)*3);
-  ctx.fillStyle='#ff9a6b'; rr(-30,26,60,44,20); ctx.fill();
-  ctx.fillStyle='#ffe0c4'; circle(0,0,34); ctx.fill();
-  ctx.fillStyle='#ff6f5e'; ctx.beginPath(); ctx.arc(0,-2,34,Math.PI,0); ctx.closePath(); ctx.fill();
-  ctx.fillStyle='#ffffff'; for(let i=-2;i<=2;i++){ circle(i*12,-14,3.4); ctx.fill(); }
-  ctx.fillStyle='#ff6f5e'; ctx.beginPath(); ctx.moveTo(24,-26); ctx.lineTo(40,-34); ctx.lineTo(34,-16); ctx.closePath(); ctx.fill();
-  ctx.fillStyle='#ffb0a0'; circle(-16,8,7); ctx.fill(); circle(16,8,7); ctx.fill();
-  ctx.fillStyle='#5a3d30';
-  if(mascot.mood==='happy'){ ctx.lineWidth=3; ctx.strokeStyle='#5a3d30';
-    ctx.beginPath(); ctx.arc(-12,-2,5,Math.PI,0,true); ctx.stroke(); ctx.beginPath(); ctx.arc(12,-2,5,Math.PI,0,true); ctx.stroke();
-    ctx.beginPath(); ctx.arc(0,8,8,0,Math.PI); ctx.stroke(); }
-  else if(mascot.mood==='sad'){ ctx.beginPath(); ctx.arc(-12,0,3.5,0,Math.PI*2); ctx.fill(); ctx.beginPath(); ctx.arc(12,0,3.5,0,Math.PI*2); ctx.fill();
-    ctx.lineWidth=3; ctx.strokeStyle='#5a3d30'; ctx.beginPath(); ctx.arc(0,16,7,Math.PI,0,true); ctx.stroke();
-    ctx.fillStyle='#7fc0e8'; ctx.beginPath(); ctx.moveTo(20,2); ctx.quadraticCurveTo(24,10,20,12); ctx.quadraticCurveTo(16,10,20,2); ctx.fill(); }
-  else { ctx.beginPath(); ctx.arc(-12,0,3.6,0,Math.PI*2); ctx.fill(); ctx.beginPath(); ctx.arc(12,0,3.6,0,Math.PI*2); ctx.fill();
-    ctx.lineWidth=3; ctx.strokeStyle='#5a3d30'; ctx.beginPath(); ctx.moveTo(-6,10); ctx.lineTo(6,10); ctx.stroke(); }
+/* ---------- 마스코트 곰이 ---------- */
+function gomiHeart(x,y,s2,al){ ctx.save(); ctx.globalAlpha=clamp(al,0,1); ctx.fillStyle='#ff6f8f'; ctx.translate(x,y); ctx.scale(s2,s2);
+  ctx.beginPath(); ctx.moveTo(0,3.5); ctx.bezierCurveTo(-7,-4,-6,-10,0,-5); ctx.bezierCurveTo(6,-10,7,-4,0,3.5); ctx.closePath(); ctx.fill(); ctx.restore(); }
+function drawGomiFace(mood,t){                       // 곰이 표정
+  const EYE='#33241b', NOSE='#5b3f2d', ex=12, ey=6; ctx.lineCap='round';
+  const dot=(r)=>{ ctx.fillStyle=EYE; circle(-ex,ey,r); ctx.fill(); circle(ex,ey,r); ctx.fill(); };
+  const nose=()=>{ ctx.fillStyle=NOSE; ctx.beginPath(); ctx.ellipse(0,12,3.4,2.6,0,0,Math.PI*2); ctx.fill(); };
+  const smile=(cy,r)=>{ ctx.strokeStyle=NOSE; ctx.lineWidth=2.6; ctx.beginPath(); ctx.arc(0,cy,r,0.12,Math.PI-0.12); ctx.stroke(); };
+  const arcEyes=(dy,up)=>{ ctx.strokeStyle=EYE; ctx.lineWidth=3; ctx.beginPath(); ctx.arc(-ex,ey+dy,5,Math.PI,0,up); ctx.stroke(); ctx.beginPath(); ctx.arc(ex,ey+dy,5,Math.PI,0,up); ctx.stroke(); };
+  if(mood==='happy'||mood==='love'||mood==='success'){ arcEyes(1,true); nose(); smile(16,6); }
+  else if(mood==='excited'){ dot(4.2); ctx.fillStyle='#ffffff'; circle(-ex-1.6,ey-1.6,1.6); ctx.fill(); circle(ex-1.6,ey-1.6,1.6); ctx.fill();
+    nose(); ctx.fillStyle='#bf463e'; ctx.beginPath(); ctx.arc(0,15,7,0.15,Math.PI-0.15); ctx.fill(); ctx.fillStyle='#ff9db0'; ctx.beginPath(); ctx.arc(0,17,4,0.2,Math.PI-0.2); ctx.fill(); }
+  else if(mood==='surprise'||mood==='really'){ ctx.fillStyle='#ffffff'; circle(-ex,ey,6.2); ctx.fill(); circle(ex,ey,6.2); ctx.fill();
+    ctx.fillStyle=EYE; circle(-ex,ey+1,3.4); ctx.fill(); circle(ex,ey+1,3.4); ctx.fill(); nose(); ctx.fillStyle='#a24a42'; circle(0,19,3.6); ctx.fill(); }
+  else if(mood==='burnt'||mood==='hot'){ dot(3.4); nose(); ctx.fillStyle='#a24a42'; ctx.beginPath(); ctx.ellipse(0,19,5,4.2,0,0,Math.PI*2); ctx.fill(); }
+  else if(mood==='fail'){ ctx.strokeStyle=EYE; ctx.lineWidth=3; ctx.beginPath(); ctx.arc(-ex,ey+3,5,Math.PI,0); ctx.stroke(); ctx.beginPath(); ctx.arc(ex,ey+3,5,Math.PI,0); ctx.stroke();
+    nose(); ctx.strokeStyle=NOSE; ctx.lineWidth=2.6; ctx.beginPath(); ctx.arc(0,23,6,Math.PI,0,true); ctx.stroke(); }
+  else if(mood==='hungry'){ dot(3.6); nose(); ctx.strokeStyle=NOSE; ctx.lineWidth=2.4; ctx.beginPath(); ctx.moveTo(-6,17); ctx.quadraticCurveTo(-3,20,0,17); ctx.quadraticCurveTo(3,14,6,17); ctx.stroke(); }
+  else if(mood==='eating'){ arcEyes(1,true); nose(); ctx.fillStyle='#a24a42'; ctx.beginPath(); ctx.ellipse(0,18,4.6,4,0,0,Math.PI*2); ctx.fill(); }
+  else if(mood==='focus'){ ctx.strokeStyle=EYE; ctx.lineWidth=3.4; ctx.beginPath(); ctx.moveTo(-ex-4,ey); ctx.lineTo(-ex+4,ey); ctx.moveTo(ex-4,ey); ctx.lineTo(ex+4,ey); ctx.stroke();
+    nose(); ctx.strokeStyle=NOSE; ctx.lineWidth=2.4; ctx.beginPath(); ctx.moveTo(-4,17); ctx.lineTo(4,17); ctx.stroke(); }
+  else if(mood==='meh'){ ctx.strokeStyle=EYE; ctx.lineWidth=3; ctx.beginPath(); ctx.moveTo(-ex-4,ey-1); ctx.lineTo(-ex+4,ey+1); ctx.moveTo(ex-4,ey+1); ctx.lineTo(ex+4,ey-1); ctx.stroke();
+    nose(); ctx.strokeStyle=NOSE; ctx.lineWidth=2.4; ctx.beginPath(); ctx.moveTo(-5,18); ctx.lineTo(5,18); ctx.stroke(); }
+  else { dot(3.6); nose(); ctx.strokeStyle=NOSE; ctx.lineWidth=2.4; ctx.beginPath(); ctx.moveTo(-4,17); ctx.quadraticCurveTo(0,20,4,17); ctx.stroke(); }
+}
+function drawGomiFX(mood,t){                          // 무드 이펙트
+  if(mood==='fail'){ ctx.fillStyle='#8bd6ff';
+    ctx.beginPath(); ctx.ellipse(-12,15+(Math.sin(t*4)*0.5+0.5)*5,2.6,4.2,0,0,Math.PI*2); ctx.fill();
+    ctx.beginPath(); ctx.ellipse(12,15+(Math.sin(t*4+1)*0.5+0.5)*5,2.6,4.2,0,0,Math.PI*2); ctx.fill(); }
+  if(mood==='hungry'||mood==='eating'){ ctx.fillStyle='#a9e0ff'; const d=Math.sin(t*3)*2;
+    ctx.beginPath(); ctx.moveTo(7,18); ctx.quadraticCurveTo(9,25+d,7,28+d); ctx.quadraticCurveTo(5,25+d,7,18); ctx.fill(); }
+  if(mood==='love'){ for(let i=0;i<3;i++){ const p=(t*0.5+i*0.34)%1; gomiHeart((i-1)*20,-40-p*26,0.9,1-p); } }
+  if(mood==='success'||mood==='excited'){ for(let i=0;i<5;i++){ const a=t*2+i*1.257; sparkleStar(Math.cos(a)*44,-32+Math.sin(a*1.3)*16,3+Math.sin(t*3+i)*1.4); } }
+  if(mood==='surprise'){ ctx.fillStyle='#e0524a'; ctx.font='700 20px Jua,sans-serif'; ctx.textAlign='center'; ctx.textBaseline='middle'; ctx.fillText('!!',42,-28); ctx.textBaseline='alphabetic'; }
+  if(mood==='really'){ ctx.fillStyle='#e0524a'; ctx.font='700 18px Jua,sans-serif'; ctx.textAlign='center'; ctx.textBaseline='middle'; ctx.fillText('?!',42,-28); ctx.textBaseline='alphabetic'; }
+  if(mood==='burnt'||mood==='hot'){ ctx.strokeStyle='#6ab0e0'; ctx.lineWidth=2.2;
+    for(let i=-1;i<=1;i++){ const h=4+Math.sin(t*8+i)*2; ctx.beginPath(); ctx.moveTo(i*11,-46+h); ctx.lineTo(i*11,-36+h); ctx.stroke(); }
+    ctx.fillStyle='#8bd6ff'; ctx.beginPath(); ctx.ellipse(25,0,3,4.6,0,0,Math.PI*2); ctx.fill(); }
+  if(mood==='meh'){ ctx.fillStyle='rgba(200,200,200,.55)'; const pu=Math.sin(t*3)*2; circle(-32,-12-pu,5); ctx.fill(); circle(32,-14-pu,5); ctx.fill(); }
+}
+function drawGomi(x,y,s,mood,t){                      // 곰이 본체
+  const cheer=(mood==='success'||mood==='love'||mood==='excited');
+  const bob=Math.sin(t*2)*3*(cheer?1.8:1) + (mood==='surprise'? -Math.max(0,Math.sin(t*10))*3:0);
+  ctx.save(); ctx.translate(x,y+bob); ctx.scale(s,s); ctx.lineJoin='round'; ctx.lineCap='round';
+  const FUR='#f3e4d0', OL='#a5825e', APRON='#6f4d37', APEDGE='#5c3f2c', RED='#df5049', REDSH='#cf4640';
+  ctx.fillStyle=FUR; ctx.strokeStyle=OL; ctx.lineWidth=2.6; rr(-29,22,58,50,24); ctx.fill(); ctx.stroke();   // 몸
+  ctx.fillStyle=APRON; rr(-25,30,50,44,15); ctx.fill(); ctx.strokeStyle=APEDGE; ctx.lineWidth=2; ctx.stroke(); // 앞치마
+  ctx.strokeStyle=APRON; ctx.lineWidth=5; ctx.beginPath(); ctx.moveTo(-13,31); ctx.lineTo(-8,21); ctx.moveTo(13,31); ctx.lineTo(8,21); ctx.stroke();
+  ctx.strokeStyle='rgba(255,246,235,.5)'; ctx.lineWidth=2; circle(0,52,8.5); ctx.stroke(); circle(-5.5,45,3); ctx.stroke(); circle(5.5,45,3); ctx.stroke();
+  ctx.fillStyle='rgba(255,246,235,.5)'; circle(-3,52,1.2); ctx.fill(); circle(3,52,1.2); ctx.fill();
+  ctx.fillStyle=FUR; ctx.strokeStyle=OL; ctx.lineWidth=2.4;                                                    // 팔
+  if(cheer){ ctx.save(); ctx.translate(-25,26); ctx.rotate(-0.95+Math.sin(t*6)*0.1); rr(-6,-24,13,26,7); ctx.fill(); ctx.stroke(); ctx.restore();
+    ctx.save(); ctx.translate(25,26); ctx.rotate(0.95-Math.sin(t*6)*0.1); rr(-7,-24,13,26,7); ctx.fill(); ctx.stroke(); ctx.restore(); }
+  else if(mood==='fail'||mood==='burnt'||mood==='surprise'||mood==='hungry'||mood==='hot'||mood==='really'){
+    ctx.save(); ctx.translate(-23,30); rr(-6,-10,13,22,6); ctx.fill(); ctx.stroke(); ctx.restore();
+    ctx.save(); ctx.translate(23,30); rr(-7,-10,13,22,6); ctx.fill(); ctx.stroke(); ctx.restore(); }
+  else { ctx.save(); ctx.translate(-25,34); rr(-6,-6,13,20,6); ctx.fill(); ctx.stroke(); ctx.restore();
+    ctx.save(); ctx.translate(24,33+Math.sin(t*3)*(mood==='focus'?2:0)); rr(-7,-6,13,20,6); ctx.fill(); ctx.stroke();
+    ctx.rotate(0.35); ctx.strokeStyle='#8a5a34'; ctx.lineWidth=3.4; ctx.beginPath(); ctx.moveTo(3,-2); ctx.lineTo(14,-16); ctx.stroke();     // 주걱
+    ctx.save(); ctx.translate(15,-18); ctx.rotate(-0.7); ctx.fillStyle='#a06a3c'; rr(-5,-7,12,13,4); ctx.fill(); ctx.strokeStyle='#7c4a26'; ctx.lineWidth=1.6; ctx.stroke(); ctx.restore(); ctx.restore(); }
+  ctx.fillStyle=FUR; ctx.strokeStyle=OL; ctx.lineWidth=2.6; circle(-20,-30,12); ctx.fill(); ctx.stroke(); circle(20,-30,12); ctx.fill(); ctx.stroke();  // 귀
+  ctx.fillStyle='#eaccae'; circle(-20,-29,6); ctx.fill(); circle(20,-29,6); ctx.fill();
+  ctx.fillStyle=FUR; ctx.strokeStyle=OL; ctx.lineWidth=2.6; circle(0,0,34); ctx.fill(); ctx.stroke();          // 머리
+  ctx.save(); circle(0,0,34); ctx.clip();                                                                       // 두건
+  ctx.fillStyle=RED; ctx.beginPath(); ctx.moveTo(-38,-30); ctx.quadraticCurveTo(0,-35,38,-28); ctx.lineTo(40,-4); ctx.quadraticCurveTo(0,3,-40,-6); ctx.closePath(); ctx.fill();
+  ctx.fillStyle=REDSH; ctx.beginPath(); ctx.moveTo(-40,-8); ctx.quadraticCurveTo(0,-1,40,-6); ctx.lineTo(40,-3); ctx.quadraticCurveTo(0,5,-40,-4); ctx.closePath(); ctx.fill();
+  ctx.fillStyle='#fff8f0'; const dots=[[-25,-18],[-12,-24],[2,-21],[16,-23],[27,-15],[-19,-11],[-4,-13],[10,-11],[22,-9]];
+  for(const d of dots){ circle(d[0],d[1],2.5); ctx.fill(); }
   ctx.restore();
+  ctx.fillStyle=RED; ctx.strokeStyle=REDSH; ctx.lineWidth=1.5;                                                  // 매듭+꼬리
+  ctx.beginPath(); ctx.moveTo(31,-24); ctx.lineTo(47,-30); ctx.lineTo(41,-17); ctx.closePath(); ctx.fill(); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(32,-20); ctx.lineTo(49,-14); ctx.lineTo(38,-11); ctx.closePath(); ctx.fill(); ctx.stroke();
+  circle(30,-22,5.5); ctx.fill(); ctx.stroke();
+  ctx.fillStyle='#f4a99a'; ctx.globalAlpha=.85; circle(-19,12,7); ctx.fill(); circle(19,12,7); ctx.fill(); ctx.globalAlpha=1;   // 볼
+  drawGomiFace(mood,t); drawGomiFX(mood,t);
+  ctx.restore();
+}
+function drawMascot(){
+  if(state==='ssam') return;
+  const x=MASCOT.x, y=MASCOT.y, t=now()/1000;
+  drawGomi(x,y,0.92,mascot.mood,t);
   if(mascot.say){ ctx.save(); ctx.font='15px Jua,sans-serif'; ctx.textAlign='center';
-    const w=ctx.measureText(mascot.say).width+24, bx=x-w/2, by=y-58;
+    const w=ctx.measureText(mascot.say).width+24, bx=x-w/2, by=y-72;
     rr(bx,by,w,30,14); ctx.fillStyle='#fffef8'; ctx.fill(); ctx.strokeStyle='#ffd0a0'; ctx.lineWidth=2; ctx.stroke();
     ctx.beginPath(); ctx.moveTo(x-6,by+30); ctx.lineTo(x+6,by+30); ctx.lineTo(x,by+40); ctx.closePath(); ctx.fillStyle='#fffef8'; ctx.fill();
     ctx.fillStyle='#7a5540'; ctx.fillText(mascot.say,x,by+20); ctx.restore(); }
@@ -1814,9 +1882,9 @@ function drawOver(){
   const card=bigCardWH(W/2,cy,cw,ch); ctx.textAlign='center';
   ctx.fillStyle='#e0483a'; ctx.font='42px Jua,sans-serif'; ctx.fillText('시간 종료… 😢', W/2, card.y+66);
   ctx.fillStyle='#5a4032'; ctx.font='21px Jua,sans-serif'; ctx.fillText(score+' / '+target+'점 (목표 미달)', W/2, card.y+100);
-  drawHungry(W/2, card.y+218, 1.15);
-  ctx.fillStyle='#b5642f'; ctx.font='19px Jua,sans-serif';
-  ctx.fillText('고기를 못 먹어서 배고파요… 꼬르륵', W/2, card.y+ch-96);
+  drawGomi(W/2, card.y+210, 1.55, 'hungry', now()/1000);
+  ctx.fillStyle='#b5642f'; ctx.font='19px Jua,sans-serif'; ctx.textAlign='center';
+  ctx.fillText('곰이가 고기를 못 먹어 배고파요… 꼬르륵', W/2, card.y+ch-92);
   btn(W/2-132, card.y+ch-44, 236,58,'다시 도전','#ff7a4d',()=>{ startLevel(levelIdx); });
   btn(W/2+132, card.y+ch-44, 236,58,'처음으로','#cc9988',()=>{ score=0; state='start'; });
 }
