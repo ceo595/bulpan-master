@@ -553,7 +553,7 @@ function drawFriedRice(c){ const tsec=now()/1000, crisp=clamp(wok.press,0,1);
 function riceRender(rx,ry,d,tsec,anim){
   const stir=(anim&&anim.stir)||0, hop=(anim&&anim.hop)||0, roll=(anim&&anim.roll)||0, crisp=clamp(d.press||0,0,1);
   const fryFrac=clamp((d.fry||0)/F_BURN,0,1), items=d.items||[], nItems=items.length;
-  let base=mix('#f4e6c4','#e59234', d.has.kimchi?0.4:0.12);
+  let base=mix('#efd8a6','#df8a2c', d.has.kimchi?0.42:0.2);        // 노릇한 볶음밥 톤
   if(d.has.cheese) base=mix(base,'#f0c24a',0.24);                  // 치즈=더 노릇·고소
   base=mix(base,'#c07a2e', fryFrac*0.34); if(d.burnt) base=mix(base,'#4a3528',0.5);
   const hi=mix(base,'#fff7e8',0.55), lo=mix(base,'#9c6526',0.55);
@@ -562,11 +562,11 @@ function riceRender(rx,ry,d,tsec,anim){
   ctx.fillStyle=edge; ctx.beginPath(); ctx.ellipse(0,3,rx*1.06,ry*1.07,0,0,Math.PI*2); ctx.fill();                    // 눌은 가장자리
   ctx.fillStyle=lo; ctx.beginPath(); ctx.ellipse(0,0,rx,ry,0,0,Math.PI*2); ctx.fill();                                // 베이스(그늘)
   ctx.save(); ctx.beginPath(); ctx.ellipse(0,0,rx*1.04,ry*1.04,0,0,Math.PI*2); ctx.clip();
-  const N=Math.min(360,190+nItems*4);
+  const N=Math.min(430,240+nItems*4);
   const grain=(i)=>{ const a0=prr(i*2+1,0,6.28), a=a0+roll*(0.5+prr(i+7,0,0.7)), rad=Math.sqrt(prr(i*2+2,0,1));
-    let gx=Math.cos(a)*rx*0.99*rad, gy=Math.sin(a)*ry*0.95*rad - (1-rad)*ry*0.16;         // 가운데 볼록(무더기)
+    let gx=Math.cos(a)*rx*0.99*rad, gy=Math.sin(a)*ry*0.95*rad - (1-rad)*ry*0.2;          // 가운데 볼록(무더기)
     if(stir>0){ gx+=Math.sin(tsec*20+i*1.7)*stir*3.2; gy+=Math.cos(tsec*17+i)*stir*2.2; } // 볶기 흔들림
-    const gl=prr(i+2,2.6,3.6), gw=prr(i+4,1.4,1.9), ga=a0*1.6+prr(i+8,-0.5,0.5);
+    const gl=prr(i+2,3.3,4.6), gw=prr(i+4,1.9,2.6), ga=a0*1.6+prr(i+8,-0.5,0.5);           // 도톰한 밥알
     const tone=clamp(0.55-gy/(ry*1.5)+prr(i+9,-0.18,0.22),0,1);
     ctx.save(); ctx.translate(gx,gy); ctx.rotate(ga);
     ctx.fillStyle=mix(lo,'#5c3a18',0.25); ctx.beginPath(); ctx.ellipse(0.5,0.9,gl*0.98,gw*1.02,0,0,Math.PI*2); ctx.fill();   // 밥알 그늘
@@ -2096,11 +2096,13 @@ function drawPerillaLeaf(cx,cy,sc){              // 깻잎 (톱니 잎·잎맥·
     ctx.beginPath(); ctx.moveTo(0,sy); ctx.quadraticCurveTo(R*0.32,sy-8,R*0.56,sy-18); ctx.stroke(); }
   ctx.restore(); }
 function drawSsamMeatPiece(k,x,y,sc,rot){ ctx.save(); ctx.translate(x,y); ctx.rotate(rot||0); ctx.scale(sc,sc);
-  ctx.fillStyle='rgba(50,26,14,.24)'; ctx.beginPath(); ctx.ellipse(0,21,40,12,0,0,Math.PI*2); ctx.fill();
+  ctx.fillStyle='rgba(50,26,14,.28)'; ctx.beginPath(); ctx.ellipse(0,22,42,14,0,0,Math.PI*2); ctx.fill();
   const m=MEAT[k]; drawIconCentered(k, m?m.perfect[1]:1, true, false);
-  ctx.globalAlpha=0.2; ctx.fillStyle='#a8672e'; ctx.beginPath(); ctx.ellipse(0,-1,25,17,0,0,Math.PI*2); ctx.fill();   // 양념 코팅
-  ctx.globalAlpha=0.65; ctx.fillStyle='rgba(255,244,205,.9)'; ctx.beginPath(); ctx.ellipse(-8,-8,8,4,-0.5,0,Math.PI*2); ctx.fill();  // 윤기
-  ctx.globalAlpha=1; ctx.restore(); }
+  ctx.globalAlpha=0.34; const sg=ctx.createRadialGradient(-6,-8,3,0,0,30);       // 양념 코팅(불그스름 윤기)
+  sg.addColorStop(0,'rgba(184,94,42,.45)'); sg.addColorStop(1,'rgba(140,58,24,.8)');
+  ctx.fillStyle=sg; ctx.beginPath(); ctx.ellipse(0,-1,28,20,0,0,Math.PI*2); ctx.fill(); ctx.globalAlpha=1;
+  ctx.globalAlpha=0.72; ctx.fillStyle='rgba(255,246,212,.95)'; ctx.beginPath(); ctx.ellipse(-9,-9,9,4.5,-0.5,0,Math.PI*2); ctx.fill();   // 반짝
+  ctx.globalAlpha=0.4; ctx.beginPath(); ctx.ellipse(9,5,5,2.6,-0.4,0,Math.PI*2); ctx.fill(); ctx.globalAlpha=1; ctx.restore(); }
 function drawJangDab(x,y,sc){ ctx.save(); ctx.translate(x,y); ctx.scale(sc||1,sc||1);
   ctx.fillStyle='#6e4420'; ctx.beginPath(); ctx.ellipse(0,3,19,13,0,0,Math.PI*2); ctx.fill();
   ctx.fillStyle='#875a2c'; ctx.beginPath(); ctx.ellipse(0,0,17,11,0,0,Math.PI*2); ctx.fill();
@@ -2154,18 +2156,18 @@ function drawBuiltSsam(cx,cy,S,items,t,hero,noPlate){ const has=k=>items.indexOf
   if(!items.length){ ctx.fillStyle=noPlate?'#6a4526':'#c69a78'; ctx.font='19px Jua,sans-serif'; ctx.textAlign='center';
     ctx.fillText('재료를 여기로 끌어와 쌈을 싸요 🥬',0,26); ctx.restore(); return; }
   const sang=has('ss_sangchu'), kkae=has('ss_kkaennip');
-  if(sang) drawWrapLeaf(0,6,1.04);                                          // 1. 상추(베이스)
-  if(kkae) drawPerillaLeaf(sang?-40:0, sang?-2:0, sang?0.74:1.08);          // 2. 깻잎(왼쪽 겹침)
-  const mn=Math.min(meats.length,3), mpos=[[0,-2],[-32,8],[32,10]];          // 3. 고기(중앙, 넉넉히)
-  for(let i=0;i<mn;i++){ const P=mpos[i]; drawSsamMeatPiece(meats[i],P[0],P[1]-8,0.86, prr(i*7+2,-0.14,0.14)); }
-  if(has('ss_kimchi')) drawKimchiTangle(46,16,1.05);                         // 4. 김치(오른쪽 삐져나옴)
-  if(has('ss_yangpa')) drawOnionSlivers(-42,22,1.05);                        // 5. 양파채
-  if(has('ss_maneul')) drawGarlicSlices(-26,-18,1.2);                        // 6. 편마늘(고기 위)
-  if(has('ss_ssamjang')) drawJangSmear(4,-6,1.25);                           // 7. 쌈장(고기 위 스미어)
-  if(has('ss_sogeum')){ ctx.fillStyle='#ffffff'; for(let i=0;i<11;i++){ const a=prr(i*5+3,0,6.28),rr2=prr(i*4+2,3,26); circle(Math.cos(a)*rr2,-6+Math.sin(a)*rr2*0.45,1.4); ctx.fill(); } }  // 8. 소금
-  if(mn>0){ ctx.fillStyle='#fff6e0'; for(let i=0;i<12;i++){ const a=prr(i*4+3,0,6.28), r2=prr(i*4+4,4,28); ctx.save(); ctx.translate(Math.cos(a)*r2,-6+Math.sin(a)*r2*0.5); ctx.rotate(prr(i,0,3)); ctx.beginPath(); ctx.ellipse(0,0,1.6,1,0,0,Math.PI*2); ctx.fill(); ctx.restore(); } }  // 고기 위 깨
-  if(has('ss_gochu'))  drawChiliRings(26,-20,1.15);                          // 9. 고추(위에)
-  if(has('ss_chamgireum')) drawSsamGloss(0,-4,80);                           // 10. 참기름 윤기
+  if(sang) drawWrapLeaf(0,14,0.9);                                          // 1. 상추(컵 배경 — 살짝 작게)
+  if(kkae) drawPerillaLeaf(sang?-48:0, sang?4:0, sang?0.84:1.08);           // 2. 깻잎
+  const mn=Math.min(meats.length,3), mpos=[[0,-4],[-30,4],[28,7]];           // 3. 고기(큼직·주인공)
+  for(let i=0;i<mn;i++){ const P=mpos[i]; drawSsamMeatPiece(meats[i],P[0],P[1]-6,1.34-i*0.08, prr(i*7+2,-0.13,0.13)); }
+  if(has('ss_kimchi')) drawKimchiTangle(50,22,1.5);                          // 4. 김치(넉넉히 삐져나옴)
+  if(has('ss_yangpa')) drawOnionSlivers(-50,28,1.4);                         // 5. 양파채
+  if(has('ss_maneul')) drawGarlicSlices(-30,-22,1.7);                        // 6. 편마늘(고기 위)
+  if(has('ss_ssamjang')) drawJangSmear(2,-10,1.9);                           // 7. 쌈장(고기 위 듬뿍)
+  if(has('ss_sogeum')){ ctx.fillStyle='#ffffff'; for(let i=0;i<14;i++){ const a=prr(i*5+3,0,6.28),rr2=prr(i*4+2,4,32); circle(Math.cos(a)*rr2,-6+Math.sin(a)*rr2*0.42,1.6); ctx.fill(); } }  // 8. 소금
+  if(mn>0){ ctx.fillStyle='#fff6e0'; for(let i=0;i<16;i++){ const a=prr(i*4+3,0,6.28), r2=prr(i*4+4,5,34); ctx.save(); ctx.translate(Math.cos(a)*r2,-6+Math.sin(a)*r2*0.5); ctx.rotate(prr(i,0,3)); ctx.beginPath(); ctx.ellipse(0,0,1.9,1.2,0,0,Math.PI*2); ctx.fill(); ctx.restore(); } }  // 깨 듬뿍
+  if(has('ss_gochu'))  drawChiliRings(34,-28,1.5);                          // 9. 고추
+  if(has('ss_chamgireum')) drawSsamGloss(0,-6,74);                          // 10. 참기름 윤기
   ctx.restore();
   if(hero || meats.length) drawSsamSteam(cx, cy-30*S, t); }
 
