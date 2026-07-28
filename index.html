@@ -552,54 +552,57 @@ function drawFriedRice(c){ const tsec=now()/1000, crisp=clamp(wok.press,0,1);
 // 볶음밥 본체 렌더 (실시간 웍 & 엔딩 접시 공용). d={items,has,fry,grease,press,burnt}
 function riceRender(rx,ry,d,tsec,anim){
   const stir=(anim&&anim.stir)||0, hop=(anim&&anim.hop)||0, roll=(anim&&anim.roll)||0, crisp=clamp(d.press||0,0,1);
-  const fryFrac=clamp((d.fry||0)/F_BURN,0,1), items=d.items||[], nItems=items.length;
-  let base=mix('#efd8a6','#df8a2c', d.has.kimchi?0.42:0.2);        // 노릇한 볶음밥 톤
-  if(d.has.cheese) base=mix(base,'#f0c24a',0.24);                  // 치즈=더 노릇·고소
-  base=mix(base,'#c07a2e', fryFrac*0.34); if(d.burnt) base=mix(base,'#4a3528',0.5);
-  const hi=mix(base,'#fff7e8',0.55), lo=mix(base,'#9c6526',0.55);
+  const fry=d.fry||0, fryFrac=clamp(fry/F_BURN,0,1), items=d.items||[], nItems=items.length;
+  const ck=clamp(fry/F_GOLD_LO,0,1);                              // 0=흰밥(생) → 1=노릇 볶음밥
+  const sp=0.66+0.34*ck, RXe=rx*sp, RYe=ry*sp;                    // 생쌀=가운데 무더기 → 볶을수록 퍼짐
+  const domeK=0.18+(1-ck)*0.26;                                   // 생쌀일수록 봉긋
+  let white=mix('#faf4e6','#f2e6cc', d.has.cheese?0.28:0.08);
+  let golden=mix('#eed7a4','#dd8828', d.has.kimchi?0.44:0.22); if(d.has.cheese) golden=mix(golden,'#f0c24a',0.24);
+  let base=mix(white,golden,ck); base=mix(base,'#bf7a2c', clamp((fryFrac-0.56)/0.44,0,1)*0.36); if(d.burnt) base=mix(base,'#4a3528',0.5);
+  const hi=mix(base,'#ffffff',0.5), lo=mix(base, ck<0.5?mix('#e6d5b0','#b89a68',ck*2):'#9c6526', 0.5);
   const edge=mix('#caa055', d.burnt?'#3a2a1c':'#7c4418', clamp(fryFrac*0.7+crisp*0.6,0,1));
-  ctx.fillStyle='rgba(45,28,14,.24)'; ctx.beginPath(); ctx.ellipse(0,ry*0.5,rx,ry*0.56,0,0,Math.PI*2); ctx.fill();     // 그림자
-  ctx.fillStyle=edge; ctx.beginPath(); ctx.ellipse(0,3,rx*1.06,ry*1.07,0,0,Math.PI*2); ctx.fill();                    // 눌은 가장자리
-  ctx.fillStyle=lo; ctx.beginPath(); ctx.ellipse(0,0,rx,ry,0,0,Math.PI*2); ctx.fill();                                // 베이스(그늘)
-  ctx.save(); ctx.beginPath(); ctx.ellipse(0,0,rx*1.04,ry*1.04,0,0,Math.PI*2); ctx.clip();
+  ctx.fillStyle='rgba(45,28,14,.24)'; ctx.beginPath(); ctx.ellipse(0,RYe*0.5,RXe,RYe*0.56,0,0,Math.PI*2); ctx.fill();     // 그림자
+  ctx.fillStyle=edge; ctx.beginPath(); ctx.ellipse(0,3,RXe*1.06,RYe*1.07,0,0,Math.PI*2); ctx.fill();                     // 눌은 가장자리
+  ctx.fillStyle=lo; ctx.beginPath(); ctx.ellipse(0,0,RXe,RYe,0,0,Math.PI*2); ctx.fill();                                 // 베이스(그늘)
+  ctx.save(); ctx.beginPath(); ctx.ellipse(0,0,RXe*1.05,RYe*1.05,0,0,Math.PI*2); ctx.clip();
   const N=Math.min(430,240+nItems*4);
   const grain=(i)=>{ const a0=prr(i*2+1,0,6.28), a=a0+roll*(0.5+prr(i+7,0,0.7)), rad=Math.sqrt(prr(i*2+2,0,1));
-    let gx=Math.cos(a)*rx*0.99*rad, gy=Math.sin(a)*ry*0.95*rad - (1-rad)*ry*0.2;          // 가운데 볼록(무더기)
+    let gx=Math.cos(a)*RXe*0.99*rad, gy=Math.sin(a)*RYe*0.95*rad - (1-rad)*RYe*domeK;      // 무더기(생쌀 봉긋)
     if(stir>0){ gx+=Math.sin(tsec*20+i*1.7)*stir*3.2; gy+=Math.cos(tsec*17+i)*stir*2.2; } // 볶기 흔들림
     const gl=prr(i+2,3.3,4.6), gw=prr(i+4,1.9,2.6), ga=a0*1.6+prr(i+8,-0.5,0.5);           // 도톰한 밥알
-    const tone=clamp(0.55-gy/(ry*1.5)+prr(i+9,-0.18,0.22),0,1);
+    const tone=clamp(0.55-gy/(RYe*1.5)+prr(i+9,-0.18,0.22),0,1);
     ctx.save(); ctx.translate(gx,gy); ctx.rotate(ga);
-    ctx.fillStyle=mix(lo,'#5c3a18',0.25); ctx.beginPath(); ctx.ellipse(0.5,0.9,gl*0.98,gw*1.02,0,0,Math.PI*2); ctx.fill();   // 밥알 그늘
+    ctx.fillStyle=mix(lo, ck<0.5?'#c9b184':'#5c3a18', 0.25+ck*0.1); ctx.beginPath(); ctx.ellipse(0.5,0.9,gl*0.98,gw*1.02,0,0,Math.PI*2); ctx.fill();   // 밥알 그늘
     ctx.fillStyle= tone>0.5? mix(base,hi,(tone-0.5)*1.6) : mix(lo,base,tone*2);
     ctx.beginPath(); ctx.ellipse(0,0,gl,gw,0,0,Math.PI*2); ctx.fill();
-    ctx.fillStyle='rgba(255,255,255,'+(0.22+tone*0.3).toFixed(2)+')'; ctx.beginPath(); ctx.ellipse(-gl*0.22,-gw*0.3,gl*0.42,gw*0.4,0,0,Math.PI*2); ctx.fill();
+    ctx.fillStyle='rgba(255,255,255,'+(0.24+tone*0.32).toFixed(2)+')'; ctx.beginPath(); ctx.ellipse(-gl*0.22,-gw*0.3,gl*0.42,gw*0.4,0,0,Math.PI*2); ctx.fill();
     ctx.restore(); };
   const back=Math.floor(N*0.6);
   for(let i=0;i<back;i++) grain(i);                               // 뒤쪽 밥알
-  riceBits(items,rx,ry,tsec,stir,hop,crisp,roll,lo);             // 재료(밥 사이)
-  for(let i=back;i<N;i++) grain(i);                              // 앞쪽 밥알(재료 일부 덮음=파묻힘)
+  riceBits(items,RXe,RYe,tsec,stir,hop,crisp,roll,lo,ck);        // 재료(볶을수록 퍼짐)
+  for(let i=back;i<N;i++) grain(i);                              // 앞쪽 밥알(재료 파묻힘)
   ctx.fillStyle='#fff6de';                                       // 깨
-  for(let i=0;i<48;i++){ const a=prr(i*5+31,0,6.28)+roll*0.4, r2=Math.sqrt(prr(i*5+32,0,1)); const sx=Math.cos(a)*rx*0.9*r2, sy=Math.sin(a)*ry*0.88*r2-(1-r2)*ry*0.12;
+  for(let i=0;i<48;i++){ const a=prr(i*5+31,0,6.28)+roll*0.4, r2=Math.sqrt(prr(i*5+32,0,1)); const sx=Math.cos(a)*RXe*0.9*r2, sy=Math.sin(a)*RYe*0.88*r2-(1-r2)*RYe*0.12;
     ctx.save(); ctx.translate(sx,sy); ctx.rotate(prr(i+1,0,3)); ctx.fillStyle='rgba(120,80,40,.4)'; ctx.beginPath(); ctx.ellipse(0.4,0.5,0.9,0.6,0,0,Math.PI*2); ctx.fill();
     ctx.fillStyle='#fff6de'; ctx.beginPath(); ctx.ellipse(0,0,1.5,0.95,0,0,Math.PI*2); ctx.fill(); ctx.restore(); }
-  const dg=ctx.createRadialGradient(-rx*0.22,-ry*0.4,4,0,0,rx*1.15);    // 돔 라이트(위 밝게·아래 그늘)
-  dg.addColorStop(0,'rgba(255,250,225,.26)'); dg.addColorStop(0.55,'rgba(255,245,215,0)'); dg.addColorStop(1,'rgba(60,38,16,.22)');
-  ctx.fillStyle=dg; ctx.beginPath(); ctx.ellipse(0,0,rx*1.04,ry*1.04,0,0,Math.PI*2); ctx.fill();
-  const sheen=clamp(0.2+(d.grease||0)*0.26,0,0.6)*(0.72+0.28*Math.sin(tsec*2));   // 참기름 윤기
+  const dg=ctx.createRadialGradient(-RXe*0.22,-RYe*0.4,4,0,0,RXe*1.15);    // 돔 라이트
+  dg.addColorStop(0,'rgba(255,252,235,.3)'); dg.addColorStop(0.55,'rgba(255,248,220,0)'); dg.addColorStop(1,'rgba(60,38,16,.22)');
+  ctx.fillStyle=dg; ctx.beginPath(); ctx.ellipse(0,0,RXe*1.05,RYe*1.05,0,0,Math.PI*2); ctx.fill();
+  const sheen=clamp(0.16+(d.grease||0)*0.26,0,0.58)*(0.72+0.28*Math.sin(tsec*2))*(0.4+0.6*ck);   // 볶을수록 윤기↑
   ctx.globalAlpha=sheen;
-  for(let i=0;i<6;i++){ const ox=prr(i*3+61,-rx*0.6,rx*0.6), oy=prr(i*3+62,-ry*0.5,ry*0.35), r3=prr(i+6,12,26);
+  for(let i=0;i<6;i++){ const ox=prr(i*3+61,-RXe*0.6,RXe*0.6), oy=prr(i*3+62,-RYe*0.5,RYe*0.35), r3=prr(i+6,12,26);
     const gd=ctx.createRadialGradient(ox,oy,1,ox,oy,r3); gd.addColorStop(0,'rgba(255,250,220,.9)'); gd.addColorStop(1,'rgba(255,245,200,0)');
     ctx.fillStyle=gd; ctx.beginPath(); ctx.ellipse(ox,oy,r3,r3*0.6,0,0,Math.PI*2); ctx.fill(); }
   ctx.globalAlpha=1;
-  if(crisp>0.12){ ctx.globalAlpha=clamp(crisp*0.6,0,0.62);       // 누룽지(가장자리 노릇 + 바삭 알갱이)
-    ctx.strokeStyle=mix('#c88a3a','#7a4416',crisp); ctx.lineWidth=6+crisp*6; ctx.beginPath(); ctx.ellipse(0,2,rx*0.97,ry*0.97,0,0,Math.PI*2); ctx.stroke();
-    for(let i=0;i<34;i++){ const a=prr(i*3+71,0,6.28), r2=prr(i*3+72,0.55,1); ctx.fillStyle=mix('#d99a3e','#7c4416',prr(i+2,0,1)); circle(Math.cos(a)*rx*0.94*r2,Math.sin(a)*ry*0.92*r2,prr(i+4,1.4,3)); ctx.fill(); }
+  if(crisp>0.12){ ctx.globalAlpha=clamp(crisp*0.6,0,0.62);       // 누룽지(가장자리 노릇)
+    ctx.strokeStyle=mix('#c88a3a','#7a4416',crisp); ctx.lineWidth=6+crisp*6; ctx.beginPath(); ctx.ellipse(0,2,RXe*0.97,RYe*0.97,0,0,Math.PI*2); ctx.stroke();
+    for(let i=0;i<34;i++){ const a=prr(i*3+71,0,6.28), r2=prr(i*3+72,0.55,1); ctx.fillStyle=mix('#d99a3e','#7c4416',prr(i+2,0,1)); circle(Math.cos(a)*RXe*0.94*r2,Math.sin(a)*RYe*0.92*r2,prr(i+4,1.4,3)); ctx.fill(); }
     ctx.globalAlpha=1; }
   ctx.restore(); }
-function riceBits(items,rx,ry,tsec,stir,hop,crisp,roll,lo){ roll=roll||0;
+function riceBits(items,rx,ry,tsec,stir,hop,crisp,roll,lo,ck){ roll=roll||0; ck=(ck==null?1:ck); const spb=0.5+0.5*ck;
   items.forEach((it,i)=>{ if(it.type==='rice')return;
-    const a=it.a+roll*(0.5+(it.hp||0)*0.6), rad=it.rr, jit= stir>0? Math.sin(tsec*24+i*1.3)*stir*4 : 0;
-    const bx=Math.cos(a)*rx*0.9*rad+jit, byB=Math.sin(a)*ry*0.86*rad-(1-rad)*ry*0.13;
+    const a=it.a+roll*(0.5+(it.hp||0)*0.6), rad=it.rr*spb, jit= stir>0? Math.sin(tsec*24+i*1.3)*stir*4 : 0;
+    const bx=Math.cos(a)*rx*0.9*rad+jit, byB=Math.sin(a)*ry*0.86*rad-(1-it.rr)*ry*(0.13+(1-ck)*0.1);
     const bh = hop>0 ? Math.sin(clamp(hop*Math.PI-(it.hp||0)*1.1,0,Math.PI))*(12+(it.hp||0)*16) : 0;
     const by=byB-bh, sz=(it.sz||1)*(1-crisp*0.08);
     ctx.save(); ctx.translate(bx,by);
@@ -615,11 +618,13 @@ function riceBits(items,rx,ry,tsec,stir,hop,crisp,roll,lo){ roll=roll||0;
     else if(it.type==='egg'){ const ec=mix('#ffd94f','#ffbf2a',prr(i+3,0,1));
       for(let k=0;k<3;k++){ ctx.fillStyle=k?mix(ec,'#fff0b0',0.35):ec; circle(prr(i*3+k+1,-3.6,3.6),prr(i*3+k+2,-2.8,2.8),prr(i+k+2,3.2,5.2)*sz); ctx.fill(); }
       ctx.fillStyle='rgba(255,255,255,.5)'; circle(-1.4,-1.6,1.6*sz); ctx.fill(); }
-    else if(it.type==='cheese'){ ctx.fillStyle='rgba(255,208,80,.5)'; ctx.beginPath(); ctx.ellipse(0,0,8.4*sz,5.6*sz,it.a,0,Math.PI*2); ctx.fill();
-      ctx.fillStyle='rgba(255,198,66,.92)'; ctx.beginPath(); ctx.ellipse(0,0,5.4*sz,4*sz,it.a,0,Math.PI*2); ctx.fill();
-      const st=3+Math.sin(tsec*3+i)*2.4; ctx.strokeStyle='rgba(255,212,92,.75)'; ctx.lineWidth=2*sz; ctx.lineCap='round';
-      ctx.beginPath(); ctx.moveTo(-st*0.6,-2); ctx.quadraticCurveTo(st,3,st*1.5,9*sz); ctx.stroke();
-      ctx.fillStyle='rgba(255,246,200,.7)'; circle(-1.6,-1.8,1.9*sz); ctx.fill(); }
+    else if(it.type==='cheese'){                                  // 채썬·녹아내리는 치즈 (가닥 + 녹은 층 + 늘어남)
+      ctx.fillStyle='rgba(255,214,96,'+(0.32+0.26*ck).toFixed(2)+')'; ctx.beginPath(); ctx.ellipse(0,0,8*sz,5.2*sz,it.a,0,Math.PI*2); ctx.fill();
+      ctx.strokeStyle='#ffca4c'; ctx.lineCap='round';
+      for(let k=0;k<4;k++){ const oa=it.a+k*0.8+prr(i+k,0,0.4), len=6.5*sz; ctx.lineWidth=2.4*sz;
+        ctx.beginPath(); ctx.moveTo(Math.cos(oa)*-len*0.5,Math.sin(oa)*-len*0.5); ctx.quadraticCurveTo(prr(i+k,-2,2),prr(i+k+1,-2,2),Math.cos(oa)*len*0.5,Math.sin(oa)*len*0.5); ctx.stroke(); }
+      const st=3+Math.sin(tsec*3+i)*2.4; ctx.strokeStyle='rgba(255,226,124,.85)'; ctx.lineWidth=1.8*sz; ctx.beginPath(); ctx.moveTo(-st*0.5,-2); ctx.quadraticCurveTo(st,3,st*1.4,8*sz); ctx.stroke();
+      ctx.fillStyle='rgba(255,248,205,.75)'; circle(-1.6,-1.8,1.6*sz); ctx.fill(); }
     else if(it.type==='roe'){ ctx.fillStyle='#ff8a2a'; circle(0,0,5*sz); ctx.fill(); ctx.fillStyle='rgba(255,210,150,.5)'; circle(-1.4,-1.4,1.6*sz); ctx.fill(); }
     else { ctx.fillStyle='#cc9966'; circle(0,0,5*sz); ctx.fill(); }
     ctx.restore(); });
