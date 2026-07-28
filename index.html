@@ -67,6 +67,14 @@ function mix(c1,c2,t){const a=hx(c1),b=hx(c2);t=clamp(t,0,1);
 function rr(x,y,w,h,r){ctx.beginPath();ctx.moveTo(x+r,y);ctx.arcTo(x+w,y,x+w,y+h,r);ctx.arcTo(x+w,y+h,x,y+h,r);ctx.arcTo(x,y+h,x,y,r);ctx.arcTo(x,y,x+w,y,r);ctx.closePath();}
 function circle(x,y,r){ctx.beginPath();ctx.arc(x,y,r,0,Math.PI*2);ctx.closePath();}
 
+/* ---------- 음식 일러스트 스프라이트 (assets/*.png 있으면 사용, 없으면 벡터 폴백) ---------- */
+const IMG={};
+function loadSprite(key,url){ if(typeof Image==='undefined') return; try{ const im=new Image(); im.onload=()=>{ if(im.width>0) IMG[key]=im; }; im.onerror=()=>{}; im.src=url; }catch(e){} }
+['friedrice','whiterice','nurungji','ssam','ssam_lettuce'].forEach(k=>loadSprite(k,k+'.png'));   // 저장소 루트(index.html 옆)
+['rice','kimchi','gim','egg','cheese','daepa','oil','ss_sangchu','ss_kkaennip','ss_maneul','ss_yangpa','ss_gochu','ss_kimchi','ss_ssamjang','ss_sogeum','ss_chamgireum'].forEach(k=>loadSprite('ing_'+k,'ing_'+k+'.png'));
+function haveImg(k){ return !!(IMG[k] && IMG[k].width); }
+function drawSpriteFit(im,w,h){ if(!im||!im.width) return; try{ ctx.drawImage(im,-w/2,-h/2,w,h); }catch(e){} }
+
 /* ---------- 사운드 (WebAudio) ---------- */
 let AC=null, muted=false, sizzleGain=null, sizzleOn=false, bedEl=null, bedReady=false, bedUnlocked=false;
 function initBed(){ if(bedEl || typeof Audio==='undefined') return;   // 옆에 sizzle.mp3 있으면 실제 지글 소리 사용
@@ -214,7 +222,9 @@ const LMETA=[{time:30,target:500},{time:30,target:950},{time:30,target:1500},{ti
 // 아이콘 크기/중심 정규화 (삼겹살·새우 기준 84로 통일, 원 안 가운데 정렬)
 const ICON={"samgyeopsal":{"s":1,"cx":0,"cy":0},"moksal":{"s":1.05,"cx":0,"cy":0},"porkrib":{"s":0.92,"cx":12.3,"cy":-1.7},"chuck":{"s":0.93,"cx":0.5,"cy":0},"sirloin":{"s":1.135,"cx":0,"cy":2},"shrimp":{"s":0.999,"cx":4.8,"cy":-3.7},"enoki":{"s":1.057,"cx":0,"cy":0.3},"kingoyster":{"s":1.373,"cx":0,"cy":-1.5},"sausage":{"s":1.335,"cx":-0.9,"cy":0.8},"kimchi":{"s":1.024,"cx":0,"cy":-0.5},"onion":{"s":1.024,"cx":0,"cy":0},"asparagus":{"s":1.152,"cx":2.1,"cy":-5},"scallop":{"s":1.273,"cx":0,"cy":-2.5},"abalone":{"s":1.4,"cx":0,"cy":0},"kijogae":{"s":0.839,"cx":4.6,"cy":1.1},"gopchang":{"s":1.162,"cx":-0.8,"cy":1.3},"daechang":{"s":1.091,"cx":2.6,"cy":5.7},"garlic":{"s":1.219,"cx":0.5,"cy":1.2},"buchu":{"s":1.16,"cx":-1.3,"cy":-7.4},
 "daepae":{"s":1.42,"cx":0,"cy":-1},"vienna":{"s":1.0,"cx":0,"cy":-4},"rice":{"s":1.0,"cx":0,"cy":0},"gim":{"s":1.0,"cx":0,"cy":0},"roe":{"s":1.0,"cx":0,"cy":0},"cheese":{"s":1.0,"cx":0,"cy":0},"friedrice":{"s":1.0,"cx":0,"cy":0},"oil":{"s":1.0,"cx":0,"cy":0},"egg":{"s":1.0,"cx":0,"cy":0},"daepa":{"s":1.0,"cx":0,"cy":0}};
-function drawIconCentered(type,dmax,flipped,burnt){ const ic=ICON[type]; ctx.save(); if(ic){ ctx.scale(ic.s,ic.s); ctx.translate(-ic.cx,-ic.cy); } drawMeatIcon(0,0,type,dmax,flipped,burnt); ctx.restore(); }
+function drawIconCentered(type,dmax,flipped,burnt){
+  if(!dmax && !flipped && !burnt && haveImg('ing_'+type)){ drawSpriteFit(IMG['ing_'+type],84,84); return; }   // 생재료=이미지(구운 상태는 벡터 유지)
+  const ic=ICON[type]; ctx.save(); if(ic){ ctx.scale(ic.s,ic.s); ctx.translate(-ic.cx,-ic.cy); } drawMeatIcon(0,0,type,dmax,flipped,burnt); ctx.restore(); }
 
 /* ---------- 존/좌표 ---------- */
 let GRILL={x:238,y:150,w:446,h:286};
@@ -546,8 +556,28 @@ function drawFriedRice(c){ const tsec=now()/1000, crisp=clamp(wok.press,0,1);
   if(wok.items.length===0){ ctx.fillStyle='#f0dcc2'; ctx.font=(portrait?'20px':'16px')+' Jua,sans-serif'; ctx.textAlign='center'; ctx.fillText('밥과 재료를 넣어요!',c.x,c.y+4); return; }
   ctx.save(); ctx.translate(c.x,c.y+lift);
   const rx=RX*(1+crisp*0.12), ry=RY*(1-crisp*0.14);
-  riceRender(rx,ry,wok,tsec,{stir,hop,roll:(wok.stir.roll||0)});
+  if(haveImg('friedrice')) riceImg(rx,ry,wok,tsec,{stir,hop,roll:(wok.stir.roll||0)});
+  else riceRender(rx,ry,wok,tsec,{stir,hop,roll:(wok.stir.roll||0)});
   drawRiceSteam(rx,ry,tsec,0.16);
+  ctx.restore(); }
+// 볶음밥 이미지 모드 (friedrice.png 있을 때). 흰밥→골든 크로스페이드 + 볶기 흔들림 + 윤기/누룽지
+function riceImg(rx,ry,d,tsec,anim){
+  const stir=(anim&&anim.stir)||0, crisp=clamp(d.press||0,0,1), ck=clamp((d.fry||0)/F_GOLD_LO,0,1), fryFrac=clamp((d.fry||0)/F_BURN,0,1);
+  ctx.save(); ctx.rotate((anim.roll||0)*0.02 + (stir>0?Math.sin(tsec*16)*0.03*stir:0));   // 볶는 흔들림
+  ctx.fillStyle='rgba(45,28,14,.24)'; ctx.beginPath(); ctx.ellipse(0,ry*0.5,rx,ry*0.55,0,0,Math.PI*2); ctx.fill();
+  const W=rx*2.25, H=ry*2.35;
+  if(ck<0.99){                                        // 흰밥(생) 아래층
+    if(haveImg('whiterice')){ ctx.globalAlpha=1; drawSpriteFit(IMG.whiterice,W*0.92,H*0.92); }
+    else riceRender(rx,ry,{items:d.items,has:d.has,fry:0,grease:0,press:0,burnt:false},tsec,{stir,hop:anim.hop,roll:anim.roll}); }
+  ctx.globalAlpha=clamp(ck,0,1); drawSpriteFit(IMG.friedrice,W,H); ctx.globalAlpha=1;       // 골든 볶음밥
+  if(crisp>0.1){                                       // 누룽지
+    if(haveImg('nurungji')){ ctx.globalAlpha=clamp(crisp,0,1); drawSpriteFit(IMG.nurungji,W,H); ctx.globalAlpha=1; }
+    else { ctx.globalAlpha=clamp(crisp*0.5,0,0.5); ctx.strokeStyle=mix('#c88a3a','#7a4416',crisp); ctx.lineWidth=8; ctx.beginPath(); ctx.ellipse(0,2,rx*0.95,ry*0.95,0,0,Math.PI*2); ctx.stroke(); ctx.globalAlpha=1; } }
+  if(d.burnt){ ctx.globalAlpha=0.42; ctx.fillStyle='#3a2418'; ctx.beginPath(); ctx.ellipse(0,0,rx,ry,0,0,Math.PI*2); ctx.fill(); ctx.globalAlpha=1; }
+  else if(fryFrac>0.86){ ctx.globalAlpha=(fryFrac-0.86)*1.4; ctx.fillStyle='#7a4416'; ctx.beginPath(); ctx.ellipse(0,0,rx,ry,0,0,Math.PI*2); ctx.fill(); ctx.globalAlpha=1; }
+  ctx.globalAlpha=0.16*(0.6+0.4*Math.sin(tsec*2))*(0.4+0.6*ck);                              // 윤기 반짝
+  const g=ctx.createRadialGradient(-rx*0.3,-ry*0.4,4,-rx*0.3,-ry*0.4,rx*0.9); g.addColorStop(0,'rgba(255,250,220,.9)'); g.addColorStop(1,'rgba(255,245,200,0)');
+  ctx.fillStyle=g; ctx.beginPath(); ctx.ellipse(0,0,rx,ry,0,0,Math.PI*2); ctx.fill(); ctx.globalAlpha=1;
   ctx.restore(); }
 // 볶음밥 본체 렌더 (실시간 웍 & 엔딩 접시 공용). d={items,has,fry,grease,press,burnt}
 function riceRender(rx,ry,d,tsec,anim){
@@ -641,7 +671,8 @@ function drawPlatedFriedRice(cx,cy,sc){ const tsec=now()/1000; let d=friedResult
   ctx.fillStyle='rgba(60,40,20,.16)'; ctx.beginPath(); ctx.ellipse(0,44,150,30,0,0,Math.PI*2); ctx.fill();
   ctx.fillStyle='#ffffff'; ctx.beginPath(); ctx.ellipse(0,30,150,58,0,0,Math.PI*2); ctx.fill();
   ctx.fillStyle='#efe4d6'; ctx.beginPath(); ctx.ellipse(0,32,126,46,0,0,Math.PI*2); ctx.fill();
-  riceRender(118,58,d,tsec,{stir:0,hop:0}); drawRiceSteam(118,58,tsec,0.14);
+  if(haveImg('friedrice')) drawSpriteFit(IMG.friedrice,270,190); else riceRender(118,58,d,tsec,{stir:0,hop:0});
+  drawRiceSteam(118,58,tsec,0.14);
   ctx.restore(); }
 function drawSpatula(c){ const tsec=now()/1000, hop=Math.sin(clamp(wok.toss,0,1)*Math.PI);
   let sx, sy, rot;
@@ -2166,9 +2197,13 @@ function drawBuiltSsam(cx,cy,S,items,t,hero,noPlate){ const has=k=>items.indexOf
   const meats=items.filter(k=>MEAT[k]); ctx.save(); ctx.translate(cx,cy); ctx.scale(S,S);
   if(!noPlate){ ctx.fillStyle='#ffffff'; ctx.beginPath(); ctx.ellipse(0,58,176,50,0,0,Math.PI*2); ctx.fill();      // 접시
     ctx.fillStyle='#efe4d6'; ctx.beginPath(); ctx.ellipse(0,62,146,40,0,0,Math.PI*2); ctx.fill(); }
-  if(!items.length){ ctx.fillStyle=noPlate?'#6a4526':'#c69a78'; ctx.font='19px Jua,sans-serif'; ctx.textAlign='center';
+  if(!items.length){ if(haveImg('ssam_lettuce')){ drawSpriteFit(IMG.ssam_lettuce,240,200); ctx.restore(); return; }
+    ctx.fillStyle=noPlate?'#6a4526':'#c69a78'; ctx.font='19px Jua,sans-serif'; ctx.textAlign='center';
     ctx.fillText('재료를 여기로 끌어와 쌈을 싸요 🥬',0,26); ctx.restore(); return; }
   const sang=has('ss_sangchu'), kkae=has('ss_kkaennip');
+  if(haveImg('ssam') && sang && meats.length){                             // 완성 쌈 일러스트
+    drawSpriteFit(IMG.ssam,272,232); ctx.restore(); if(hero||meats.length) drawSsamSteam(cx,cy-30*S,t); return; }
+  if(haveImg('ssam_lettuce') && (!sang || !meats.length)) drawSpriteFit(IMG.ssam_lettuce,240,200);   // 조립 중 상추 이미지
   if(sang) drawWrapLeaf(0,14,0.9);                                          // 1. 상추(컵 배경 — 살짝 작게)
   if(kkae) drawPerillaLeaf(sang?-48:0, sang?4:0, sang?0.84:1.08);           // 2. 깻잎
   const mn=Math.min(meats.length,3), mpos=[[0,-4],[-30,4],[28,7]];           // 3. 고기(큼직·주인공)
@@ -2186,6 +2221,7 @@ function drawBuiltSsam(cx,cy,S,items,t,hero,noPlate){ const has=k=>items.indexOf
 
 /* ---------- 쌈 재료 아이콘 (트레이용) ---------- */
 function drawSsamIcon(k,x,y,rad){ ctx.save(); ctx.translate(x,y);
+  if(haveImg('ing_'+k)){ drawSpriteFit(IMG['ing_'+k], rad*1.9, rad*1.9); ctx.restore(); return; }   // 재료 이미지
   if(MEAT[k]){ const sc=rad/46*0.92; ctx.scale(sc,sc); const m=MEAT[k]; drawIconCentered(k,m.perfect[1],true,false); ctx.restore(); return; }
   const s=rad/30;
   if(k==='ss_sangchu'){ ctx.scale(s*0.2,s*0.2); drawWrapLeaf(0,0,1); }
